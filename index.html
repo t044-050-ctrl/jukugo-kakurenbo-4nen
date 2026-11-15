@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>熟語かくれんぼ ４年</title>
+<style>
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    user-select: none; 
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent; 
+  }
+  body {
+    background-color: #050505;
+    color: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  /* 16:9 アスペクト比固定 メインコンテナ - 赤ネオンテーマ */
+  #game-container {
+    position: relative;
+    width: 96vw;
+    height: 54vw;
+    max-width: 1200px;
+    max-height: 675px;
+    background: #110000;
+    border-radius: 18px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), 0 0 25px rgba(220, 38, 38, 0.3);
+    border: 1px solid #450a0a;
+    overflow: hidden;
+  }
+
+  #track-container {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .track-tile {
+    position: absolute;
+    width: clamp(26px, 3.2vw, 36px);
+    height: clamp(26px, 3.2vw, 36px);
+    background: #1c1917;
+    border: 2px solid #57534e;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(9px, 1.1vw, 11px);
+    font-weight: bold;
+    color: #a8a29e;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%);
+  }
+
+  @keyframes tilePop {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.4); box-shadow: 0 0 18px rgba(239, 68, 68, 0.9); z-index: 30; }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+  .tile-pop {
+    animation: tilePop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .track-tile.active-red {
+    background: #ef4444;
+    border-color: #991b1b;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+  }
+  .track-tile.active-orange {
+    background: #f97316;
+    border-color: #c2410c;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(249, 115, 22, 0.9);
+  }
+  .track-tile.active-orbit {
+    background: #fef08a !important;
+    border-color: #eab308 !important;
+    color: #854d0e !important;
+    box-shadow: 0 0 22px #facc15, 0 0 10px #ffffff !important;
+    transform: translate(-50%, -50%) scale(1.38) !important;
+    z-index: 40;
+  }
+  .track-tile.start-tile {
+    background: #f43f5e;
+    border-color: #be123c;
+    color: #ffffff;
+    font-size: clamp(8px, 1vw, 10px);
+  }
+  .track-tile.goal-tile {
+    background: #facc15;
+    border-color: #ca8a04;
+    color: #422006;
+    font-size: clamp(8px, 1vw, 10px);
+    animation: pulse-goal 1.5s infinite;
+  }
+  @keyframes pulse-goal {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.12); box-shadow: 0 0 15px rgba(250, 204, 21, 0.8); }
+  }
+
+  /* 白基調のメインコンテンツエリア */
+  #main-content {
+    position: absolute;
+    top: clamp(38px, 8.2%, 60px);
+    left: clamp(38px, 8.2%, 60px);
+    right: clamp(38px, 8.2%, 60px);
+    bottom: clamp(38px, 8.2%, 60px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(6px, 1.2vw, 12px) clamp(10px, 1.8vw, 18px);
+    background: #fafaf9;
+    border-radius: 14px;
+    border: 1px solid #e7e5e4;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.05), 0 5px 15px rgba(0,0,0,0.3);
+  }
+
+  #header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(4px, 1vw, 12px);
+    flex-wrap: nowrap;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 0.8vw, 10px);
+    flex-shrink: 0;
+  }
+  .stat-box {
+    font-size: clamp(11px, 1.3vw, 15px);
+    font-weight: 700;
+    background: #ffffff;
+    border: 1px solid #d6d3d1;
+    padding: 4px clamp(6px, 1.2vw, 14px);
+    border-radius: 20px;
+    color: #44403c;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    white-space: nowrap;
+    transition: transform 0.15s;
+  }
+  #stage-display { color: #dc2626; }
+  #points-display { color: #ea580c; background: #fff7ed; border-color: #fdba74; }
+  #points-display.rolling {
+    transform: scale(1.1);
+    background: #ffedd5;
+    border-color: #f97316;
+    color: #c2410c;
+  }
+  #timer-display { color: #0284c7; background: #f0f9ff; border-color: #bae6fd; }
+
+  .btn-ui {
+    cursor: pointer;
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: bold;
+    background: #ffffff;
+    border: 1px solid #d6d3d1;
+    color: #57534e;
+    padding: 4px clamp(6px, 1vw, 12px);
+    border-radius: 20px;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    white-space: nowrap;
+  }
+  .btn-ui:hover { background: #f5f5f4; }
+
+  /* ふりがなボタン（熟語と同じ赤い枠デザイン） */
+  #ruby-btn {
+    border: 2px solid #ef4444;
+    background: #fef2f2;
+    color: #991b1b;
+  }
+  #ruby-btn:hover {
+    background: #fee2e2;
+  }
+
+  #workspace {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    gap: clamp(12px, 2vw, 24px);
+    align-items: stretch;
+    justify-content: space-between;
+    margin-top: 8px;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* 左側：作文エリア（縦書き） */
+  #composition-container {
+    flex: 1;
+    background: #ffffff;
+    border: 2px dashed #d6d3d1;
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+  }
+  .comp-title {
+    font-size: clamp(12px, 1.2vw, 14px);
+    font-weight: 700;
+    color: #78716c;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  #composition-area {
+    flex: 1;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-size: clamp(16px, 2vw, 24px);
+    line-height: 2.2;
+    color: #292524;
+    padding: 10px;
+    overflow-x: auto;
+    font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  }
+
+  /* 熟語の枠 (ドラッグ可能) */
+  .draggable-word {
+    display: inline-block;
+    border: 2px solid #ef4444;
+    border-radius: 6px;
+    padding: 4px 6px;
+    margin: 0 2px;
+    background: #fef2f2;
+    cursor: grab;
+    color: #991b1b;
+    font-weight: bold;
+    font-size: clamp(16px, 2vw, 24px);
+    font-family: 'Hiragino Kaku Gothic ProN', sans-serif;
+    touch-action: none;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+    position: relative;
+    white-space: nowrap;
+  }
+  /* ステージA：最初は作文に溶け込んで隠れている状態 */
+  .draggable-word.hidden-idiom {
+    border-color: transparent;
+    background: transparent;
+    color: inherit;
+    font-weight: normal;
+    font-family: inherit;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .draggable-word:active { cursor: grabbing; transform: scale(1.05); }
+  .draggable-word.dragged-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  /* Pattern B 埋め込みスロット（5文字熟語「県庁所在地」にも対応できるよう高さを調整） */
+  .drop-slot.inline-drop-slot {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 1.8em;
+    min-width: 1.8em;
+    height: 5.2em;
+    border: 2px dashed #a8a29e;
+    border-radius: 6px;
+    margin: 4px -0.175em;
+    background: #f5f5f4;
+    color: transparent;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    padding: 4px 0;
+    line-height: 1.1;
+  }
+  .drop-slot.inline-drop-slot.drag-over {
+    border-color: #ef4444; background: #fef2f2; transform: scale(1.05);
+  }
+  .drop-slot.inline-drop-slot.filled {
+    border: 2px solid #22c55e;
+    border-radius: 6px;
+    background: #f0fdf4;
+    color: #15803d;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+    width: 1.8em;
+    min-width: 1.8em;
+    height: auto;
+    padding: 6px 0;
+    margin: 2px -0.175em;
+    display: inline-flex;
+  }
+
+  /* ルビ非表示用クラス */
+  .hide-ruby rt {
+    visibility: hidden;
+  }
+
+  /* 右側：問題リスト (5行) */
+  #idiom-list {
+    flex: 1.2;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vw, 12px);
+    justify-content: center;
+    height: 100%;
+    min-width: 0;
+  }
+  .idiom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1px solid #e7e5e4;
+    border-radius: 12px;
+    padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 16px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    min-width: 0;
+    transition: background-color 0.3s, border-color 0.3s;
+  }
+  .idiom-row.completed {
+    background: #f0fdf4;
+    border-color: #86efac;
+  }
+  .meaning-text {
+    flex: 1;
+    color: #44403c;
+    font-size: clamp(12px, 1.3vw, 15px);
+    font-weight: 700;
+    padding-right: 12px;
+    line-height: 1.4;
+  }
+  .slot-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .drop-slot {
+    min-width: clamp(68px, 9.5vw, 130px);
+    width: auto;
+    padding: 0 12px;
+    height: clamp(38px, 4.8vw, 52px);
+    border: 2px dashed #a8a29e;
+    border-radius: 8px;
+    background: #f5f5f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    font-size: clamp(15px, 1.9vw, 22px);
+    font-weight: bold;
+    color: transparent;
+    white-space: nowrap;
+  }
+  .drop-slot.drag-over {
+    border-color: #ef4444;
+    background: #fef2f2;
+    transform: scale(1.05);
+  }
+  .drop-slot.filled {
+    border-style: solid;
+    border-color: #22c55e;
+    background: #ffffff;
+    color: #15803d;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+  }
+  
+  .hint-btn {
+    width: clamp(32px, 3.5vw, 44px);
+    height: clamp(32px, 3.5vw, 44px);
+    border-radius: 8px;
+    background: #fef08a;
+    border: 1px solid #fde047;
+    color: #a16207;
+    font-size: clamp(10px, 1vw, 12px);
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-left: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .hint-btn:hover { background: #fde047; transform: translateY(-1px); }
+  .hint-btn.used { background: #f5f5f4; border-color: #e7e5e4; color: #a8a29e; cursor: default; }
+
+  /* ドラッグ中のクローン */
+  .touch-drag-clone {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+    transform: scale(1.1);
+    background: #ffffff;
+    border: 2px solid #ef4444;
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: #991b1b;
+    font-weight: bold;
+    font-size: clamp(16px, 2vw, 24px);
+    writing-mode: horizontal-tb;
+    white-space: nowrap;
+    width: auto !important;
+    height: auto !important;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .shake-animation {
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(3px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
+    40%, 60% { transform: translate3d(5px, 0, 0); }
+  }
+
+  /* モーダル等 */
+  .modal-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 0, 0, 0.85); backdrop-filter: blur(6px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100; animation: fadeIn 0.3s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .start-hero-card {
+    background: linear-gradient(135deg, #2a0a0a, #450a0a);
+    border: 2px solid #ef4444;
+    color: #ffffff;
+    padding: 32px;
+    border-radius: 24px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(220, 38, 38, 0.4), inset 0 0 20px rgba(239, 68, 68, 0.2);
+    max-width: 480px; width: 90%;
+  }
+  .start-hero-title {
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 900; letter-spacing: 2px;
+    color: #fca5a5; text-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+    margin-bottom: 12px;
+  }
+  .start-play-btn {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    color: #ffffff; font-size: 18px; font-weight: 800;
+    padding: 14px 48px; border: none; border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.5);
+    transition: all 0.2s; letter-spacing: 1px;
+  }
+  .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 12px 30px rgba(239, 68, 68, 0.7); }
+
+  .stage-clear-banner {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff; padding: 24px 32px; border-radius: 20px;
+    text-align: center; box-shadow: 0 15px 30px rgba(16, 185, 129, 0.4);
+    animation: bounceIn 0.5s;
+  }
+  @keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ステージズーム */
+  #stage-zoom-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 0, 0, 0.9); display: flex; justify-content: center; align-items: center;
+    z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  #stage-zoom-overlay.show { opacity: 1; pointer-events: auto; }
+  .stage-zoom-text {
+    font-size: clamp(32px, 8vw, 80px); font-weight: 900; font-style: italic;
+    color: #fca5a5; text-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
+    transform: scale(0);
+  }
+  .stage-zoom-text.animate { animation: stageZoomIn 1s forwards; }
+  @keyframes stageZoomIn {
+    0% { transform: scale(0.1); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    80% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.05); opacity: 0; }
+  }
+
+  /* 特別ステージ（ボーナスゲーム） */
+  .special-stage-container {
+    background: linear-gradient(135deg, #172554, #1e3a8a);
+    border: 2px solid #60a5fa; border-radius: 20px;
+    padding: 20px; width: 94%; max-width: 900px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(96, 165, 250, 0.3);
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .special-header {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    color: #fff; border-bottom: 1px solid #3b82f6; padding-bottom: 8px;
+  }
+  .special-title { font-size: 20px; font-weight: 900; color: #fde047; }
+  .special-timer { font-size: 20px; font-weight: bold; color: #fca5a5; }
+  .special-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    width: 100%; max-width: 800px;
+  }
+  .ono-card {
+    background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;
+    padding: 12px; text-align: center; cursor: pointer; color: #1e293b;
+    font-weight: bold; font-size: clamp(13px, 1.6vw, 17px);
+    transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex; justify-content: center; align-items: center;
+  }
+  .ono-card:hover { transform: scale(1.02); border-color: #3b82f6; }
+  .ono-card.selected { background: #eff6ff; border-color: #2563eb; box-shadow: 0 0 12px rgba(59, 130, 246, 0.5); }
+  .ono-card.matched { pointer-events: none; opacity: 0.95; }
+  .ono-card.matched-0 { background: #dcfce7; border-color: #22c55e; color: #15803d; }
+  .ono-card.matched-1 { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+  .ono-card.matched-2 { background: #f3e8ff; border-color: #a855f7; color: #7e22ce; }
+  .ono-card.matched-3 { background: #ffedd5; border-color: #f97316; color: #c2410c; }
+  .ono-card.error { animation: shake 0.3s; background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+  
+  #confetti-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 90; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="confetti-canvas"></canvas>
+  <div id="track-container"></div>
+
+  <div id="stage-zoom-overlay">
+    <div id="stage-zoom-text" class="stage-zoom-text">STAGE 1</div>
+  </div>
+
+  <div id="main-content">
+    <div id="header">
+      <div class="header-left">
+        <div class="stat-box" id="stage-display">🚩 STAGE 1 (1/3)</div>
+        <div class="stat-box" id="points-display">⭐ 0 pt</div>
+        <button class="btn-ui" id="ruby-btn" onclick="toggleRuby()">ふりがな: OFF</button>
+      </div>
+      <div class="header-left">
+        <div class="stat-box" id="timer-display">⏱ 90</div>
+        <button class="btn-ui" id="sound-btn" onclick="toggleSound()">🔊 ON</button>
+      </div>
+    </div>
+
+    <div id="workspace">
+      <!-- 左：作文エリア -->
+      <div id="composition-container">
+        <div class="comp-title" id="comp-title-text">▼ わくの言葉を右にスワイプしてね ▼</div>
+        <div id="composition-area"></div>
+      </div>
+
+      <!-- 右：問題リスト -->
+      <div id="idiom-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 長押しによる右クリックメニューや、ダブルタップによる誤作動を画面全体で無効化
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+// --- 小学校4年生向け 2文字熟語データベース ---
+const IDIOM_2CHAR_DATABASE = [
+  { word: "金色", reading: "きんいろ", meaning: "金のようにきらきらとかがやく黄色" },
+  { word: "一面", reading: "いちめん", meaning: "あたり全たい。または新聞の最初" },
+  { word: "地面", reading: "じめん", meaning: "つちや石などでできた陸地の表面" },
+  { word: "緑色", reading: "みどりいろ", meaning: "草や葉っぱのような緑の色" },
+  { word: "感心", reading: "かんしん", meaning: "心からすばらしいと感どうすること" },
+  { word: "人物", reading: "じんぶつ", meaning: "人。または物語に出てくる人" },
+  { word: "様子", reading: "ようす", meaning: "物事や人のありさまや姿" },
+  { word: "仕方", reading: "しかた", meaning: "やり方や行い方" },
+  { word: "早朝", reading: "そうちょう", meaning: "朝早くの早い時間" },
+  { word: "練習", reading: "れんしゅう", meaning: "上手にできるようにくり返し行うこと" },
+  { word: "九州", reading: "きゅうしゅう", meaning: "日本の南西にある大きな島" },
+  { word: "中央", reading: "ちゅうおう", meaning: "真ん中の場所" },
+  { word: "歩道", reading: "ほどう", meaning: "人が安全に歩くための道" },
+  { word: "合計", reading: "ごうけい", meaning: "数を足し合わせた全部の数" },
+  { word: "二倍", reading: "にばい", meaning: "ある数の二つ分の大きさ" },
+  { word: "百科", reading: "ひゃっか", meaning: "いろいろな種類の学もんや知識" },
+  { word: "言葉", reading: "ことば", meaning: "話したり書いたりするときにつかう言ぐさ" },
+  { word: "花見", reading: "はなみ", meaning: "春に桜などの花を見てたのしむこと" },
+  { word: "行事", reading: "ぎょうじ", meaning: "学校や地域などで決まった日に行うもよおし" },
+  { word: "野川", reading: "のがわ", meaning: "野原を流れる川" },
+  { word: "漢字", reading: "かんじ", meaning: "大むかしに中国からつたわった文字" },
+  { word: "仕事", reading: "しごと", meaning: "何かを作る作業や自分のつとめ" },
+  { word: "配達", reading: "はいたつ", meaning: "品物や手紙を相手にとどけること" },
+  { word: "場所", reading: "ばしょ", meaning: "物がある所や何かを行う場所" },
+  { word: "野外", reading: "やがい", meaning: "建物の外の野原や広場" },
+  { word: "活動", reading: "かつどう", meaning: "目的のために元気よく動くこと" },
+  { word: "動作", reading: "どうさ", meaning: "体やものを動かすこと" },
+  { word: "部分", reading: "ぶぶん", meaning: "全たいの中のいくつかのところ" },
+  { word: "筆者", reading: "ひっしゃ", meaning: "本や文しょうを書いた人" },
+  { word: "水道", reading: "すいどう", meaning: "きれいな水を家まで通す仕組み" },
+  { word: "有名", reading: "ゆうめい", meaning: "名前が広く知られていること" },
+  { word: "氷山", reading: "ひょうざん", meaning: "海にうかんでいる大きな氷の山" },
+  { word: "返事", reading: "へんじ", meaning: "よびかけにこたえる言葉" },
+  { word: "開会", reading: "かいかい", meaning: "集まりや行事をはじめること" },
+  { word: "全体", reading: "ぜんたい", meaning: "あまりなくすべての部分" },
+  { word: "中心", reading: "ちゅうしん", meaning: "真ん中の大切な場所" },
+  { word: "全力", reading: "ぜんりょく", meaning: "出せるかぎりのすべての力" },
+  { word: "毎日", reading: "まいにち", meaning: "一日一日。欠かさず続く日" },
+  { word: "世話", reading: "せわ", meaning: "人の面倒をみたり助けたりすること" },
+  { word: "苦手", reading: "にがて", meaning: "うまくできなくて嫌なこと" },
+  { word: "家族", reading: "かぞく", meaning: "家でいっしょに生活する親や子" },
+  { word: "文章", reading: "ぶんしょう", meaning: "考えや気持ちを書き表した文" },
+  { word: "校歌", reading: "こうか", meaning: "学校で歌い継がれている歌" },
+  { word: "作曲", reading: "さっきょく", meaning: "音楽の節やメロディーを作ること" },
+  { word: "曲線", reading: "きょくせん", meaning: "曲がっている線" },
+  { word: "空白", reading: "くうはく", meaning: "何も書かれていない白い部分" },
+  { word: "空中", reading: "くうちゅう", meaning: "空の中。地上から離れた場所" },
+  { word: "船長", reading: "せんちょう", meaning: "船の中で一番えらい責任者" },
+  { word: "夕方", reading: "ゆうがた", meaning: "日が沈むころの時間" },
+  { word: "野菜", reading: "やさい", meaning: "はたけで作る食べられるしょくぶつ" },
+  { word: "理由", reading: "りゆう", meaning: "そうなったわけや原因" },
+  { word: "未来", reading: "みらい", meaning: "これからやってくる時間" },
+  { word: "安心", reading: "あんしん", meaning: "心配がなくなって心が落ち着くこと" },
+  { word: "住所", reading: "じゅうしょ", meaning: "自分が住んでいる場所" },
+  { word: "共同", reading: "きょうどう", meaning: "みんなでいっしょに行うこと" },
+  { word: "目的", reading: "もくてき", meaning: "めざしている事柄やあて" },
+  { word: "開店", reading: "かいてん", meaning: "お店をあけて営業をはじめること" },
+  { word: "閉店", reading: "へいてん", meaning: "その日の店を閉めること" },
+  { word: "集合", reading: "しゅうごう", meaning: "決められた一か所にあつまること" },
+  { word: "発進", reading: "はっしん", meaning: "車や船などが動き出すこと" },
+  { word: "投球", reading: "とうきゅう", meaning: "ボールを投げること" },
+  { word: "実験", reading: "じっけん", meaning: "考えが正しいか実際にためすこと" },
+  { word: "要約", reading: "ようやく", meaning: "大事なところを短くまとめること" },
+  { word: "機体", reading: "きたい", meaning: "乗り物の体やフレーム" },
+  { word: "自然", reading: "しぜん", meaning: "山や川や海など作られていない世界" },
+  { word: "料理", reading: "りょうり", meaning: "食べ物を美味しく作ること" },
+  { word: "楽器", reading: "がっき", meaning: "音楽の音を出す道具" },
+  { word: "案内", reading: "あんない", meaning: "場所やようすを教えてみちびくこと" },
+  { word: "温度", reading: "おんど", meaning: "あたたかさや冷たさの度合い" },
+  { word: "方法", reading: "ほうほう", meaning: "やり方や手順" },
+  { word: "服装", reading: "ふくそう", meaning: "身につけている服やその姿" },
+  { word: "番号", reading: "ばんごう", meaning: "順じょや区別のための数字" },
+  { word: "野球", reading: "やきゅう", meaning: "ボールを打って走るスポーツ" },
+  { word: "横断", reading: "おうだん", meaning: "道路などを横ぎってわたること" },
+  { word: "最近", reading: "さいきん", meaning: "少し前からの近い時間" },
+  { word: "発明", reading: "はつめい", meaning: "新しい考えで物を作ること" },
+  { word: "図鑑", reading: "ずかん", meaning: "絵や写真で詳しく調べられる本" },
+  { word: "急行", reading: "きゅうこう", meaning: "目的地へむかって急いで向かうこと" },
+  { word: "体験", reading: "たいけん", meaning: "自分自身で実際に経験すること" },
+  { word: "銀行", reading: "ぎんこう", meaning: "お金をあずかったり貸したりする場所" },
+  { word: "以外", reading: "いがい", meaning: "それから除いたほかのこと" },
+  { word: "事故", reading: "じこ", meaning: "思いがけない不運な出来ごと" },
+  { word: "不幸", reading: "ふこう", meaning: "幸せでないこと。悲しいこと" },
+  { word: "意見", reading: "いけん", meaning: "自分の考えや思い" },
+  { word: "意味", reading: "いみ", meaning: "言葉や行動の表す内容" },
+  { word: "歌手", reading: "かしゅ", meaning: "歌を歌うことを仕事にする人" },
+  { word: "海岸", reading: "かいがん", meaning: "海にめんした陸地" },
+  { word: "会話", reading: "かいわ", meaning: "二人以上でおしゃべりすること" },
+  { word: "外国", reading: "がいこく", meaning: "自分の国以外の国" },
+  { word: "兄弟", reading: "きょうだい", meaning: "兄・弟・姉・妹の間がら" },
+  { word: "教室", reading: "きょうしつ", meaning: "学校で勉強をする部屋" },
+  { word: "計画", reading: "けいかく", meaning: "あらかじめ立てる手順や予定" },
+  { word: "見学", reading: "けんがく", meaning: "実際に見て学ぶこと" },
+  { word: "工作", reading: "こうさく", meaning: "材料をつかってものを作ること" },
+  { word: "工場", reading: "こうじょう", meaning: "製品や機械を作る場所" },
+  { word: "交通", reading: "こうつう", meaning: "人や車が行き来すること" },
+  { word: "公園", reading: "こうえん", meaning: "みんながあそんだり休んだりする広場" },
+  { word: "国語", reading: "こくご", meaning: "自分の国の言葉。教科の名前" },
+  { word: "今夜", reading: "こんや", meaning: "今日の夜" },
+  { word: "作文", reading: "さくぶん", meaning: "自分の考えや経験を書いた文章" },
+  { word: "算数", reading: "さんすう", meaning: "数や計算を学ぶ教科" },
+  { word: "時間", reading: "じかん", meaning: "時間の経過。時計が示す時刻" },
+  { word: "自習", reading: "じしゅう", meaning: "自分ですすんで勉強すること" },
+  { word: "質問", reading: "しつもん", meaning: "分からないことをたずねること" },
+  { word: "写真", reading: "しゃしん", meaning: "カメラで風景や人をうつしたもの" },
+  { word: "社会", reading: "しゃかい", meaning: "人びとが集まって作る世の中" },
+  { word: "手帳", reading: "てちょう", meaning: "メモや予定を書く小さなノート" },
+  { word: "遠足", reading: "えんそく", meaning: "歩いて景色のよい場所へ行く行事" },
+  { word: "読書", reading: "どくしょ", meaning: "本を読むこと" },
+  { word: "音楽", reading: "おんがく", meaning: "歌や楽器の音による芸術" },
+  { word: "親子", reading: "おやこ", meaning: "親と子どもの間がら" },
+  { word: "友達", reading: "ともだち", meaning: "なかよい仲間" },
+  { word: "夜空", reading: "よぞら", meaning: "夜の空" },
+  { word: "広場", reading: "ひろば", meaning: "みんなが集まれる広い場所" },
+  { word: "勉強", reading: "べんきょう", meaning: "知識や技能を身につけること" },
+  { word: "宿題", reading: "しゅくだい", meaning: "家でやってくるように出される勉強" },
+  { word: "正解", reading: "せいかい", meaning: "正しい答え" },
+  { word: "日記", reading: "にっき", meaning: "毎日の出来ごとを書く記録" },
+  { word: "太陽", reading: "たいよう", meaning: "昼間、空にかがやく大きな星" },
+  { word: "台風", reading: "たいふう", meaning: "強い風と大雨をもたらすあらし" },
+  { word: "花火", reading: "はなび", meaning: "夜空にうち上げてきれいな光を放つ火薬" },
+  { word: "時計", reading: "とけい", meaning: "時間をはかる道具" },
+  { word: "電車", reading: "でんしゃ", meaning: "電気の力で線路を走る乗り物" },
+  { word: "電話", reading: "でんわ", meaning: "遠くの人と声で話す道具" },
+  { word: "電気", reading: "でんき", meaning: "明かりをつけたり機械を動かすエネルギー" },
+  { word: "体育", reading: "たいいく", meaning: "体を動かして運動する授業" },
+  { word: "図工", reading: "ずこう", meaning: "絵や工作の授業" },
+  { word: "王様", reading: "おうさま", meaning: "国をおさめる一番えらい人" },
+  { word: "切手", reading: "きって", meaning: "手紙を出すときにはる小紙" },
+  { word: "一番", reading: "いちばん", meaning: "順序や段階が最も上であること" },
+  { word: "黒板", reading: "こくばん", meaning: "教室の前にあるチョークで書く板" },
+  { word: "小麦", reading: "こむぎ", meaning: "パンやうどんの材料になる穀物" },
+  { word: "元気", reading: "げんき", meaning: "体が丈夫で、気力があふれていること" },
+  { word: "学校", reading: "がっこう", meaning: "先生や友達と勉強する場所" },
+  { word: "水中", reading: "すいちゅう", meaning: "水の中" },
+  { word: "日光", reading: "にっこう", meaning: "太陽の光" },
+  { word: "小川", reading: "おがわ", meaning: "小さな川" },
+  { word: "小石", reading: "こいし", meaning: "小さな石" },
+  { word: "上下", reading: "じょうげ", meaning: "上と下" },
+  { word: "足音", reading: "あしおと", meaning: "歩くときに出る足の音" },
+  { word: "画数", reading: "かくすう", meaning: "漢字を書くときの線の数" },
+  { word: "先生", reading: "せんせい", meaning: "学校などで教えてくれる人" },
+  { word: "音読", reading: "おんどく", meaning: "声に出して本などを読むこと" },
+  { word: "生活", reading: "せいかつ", meaning: "日々の暮らし" },
+  { word: "来月", reading: "らいげつ", meaning: "今の月のつぎの月" },
+  { word: "来年", reading: "らいねん", meaning: "今の年のつぎの年" },
+  { word: "正月", reading: "しょうがつ", meaning: "一月の一日を中心とする新しい年のお祝い" },
+  { word: "正門", reading: "せいもん", meaning: "表にある一番大きな門" },
+  { word: "女子", reading: "じょし", meaning: "女の人や女の子" },
+  { word: "男子", reading: "だんし", meaning: "男の人や男の子" },
+  { word: "人間", reading: "にんげん", meaning: "人のこと" },
+  { word: "黄色", reading: "きいろ", meaning: "ひまわりの花のような色" },
+  { word: "数字", reading: "すうじ", meaning: "数を表す文字" },
+  { word: "名前", reading: "なまえ", meaning: "人やものの呼び名" },
+  { word: "野原", reading: "のはら", meaning: "草がたくさん生えている広い野" },
+  { word: "本当", reading: "ほんとう", meaning: "うそではないこと" },
+  { word: "湯気", reading: "ゆげ", meaning: "あたたかい水から出る白いけむりのようなもの" },
+  { word: "空気", reading: "くうき", meaning: "空にあって、目に見えない気体" },
+  { word: "会社", reading: "かいしゃ", meaning: "みんなで働く場所" },
+  { word: "休日", reading: "きゅうじつ", meaning: "仕事や学校が休みの日" },
+  { word: "計算", reading: "けいさん", meaning: "数をたしたりひいたりすること" },
+  { word: "自分", reading: "じぶん", meaning: "自分自身のこと" },
+  { word: "草原", reading: "そうげん", meaning: "草がいっぱいに広がる場所" },
+  { word: "森林", reading: "しんりん", meaning: "木がたくさん生えている広い林" },
+  { word: "日本", reading: "にほん", meaning: "わたしたちの住む国" },
+  { word: "神話", reading: "しんわ", meaning: "むかしから伝わる神々のお話" },
+  { word: "大切", reading: "たいせつ", meaning: "とても大事なこと" },
+  { word: "地図", reading: "ちず", meaning: "土地の形や場所を絵にしたもの" },
+  { word: "上手", reading: "じょうず", meaning: "うまいこと。上手なこと" },
+  { word: "夜中", reading: "よなか", meaning: "夜の深い時間" },
+  { word: "大工", reading: "だいく", meaning: "家などを建てる仕事をする人" },
+  { word: "市場", reading: "いちば", meaning: "いろいろなものを売ったり買ったりする場所" },
+  { word: "茶色", reading: "ちゃいろ", meaning: "お茶の葉のような色" },
+  { word: "今日", reading: "きょう", meaning: "いまの日" },
+  { word: "教科", reading: "きょうか", meaning: "学校で勉強する分野" },
+  { word: "手紙", reading: "てがみ", meaning: "心や用件を書いた紙" },
+  { word: "午前", reading: "ごぜん", meaning: "夜の十二時から昼の十二時までの時間" },
+  { word: "午後", reading: "ごご", meaning: "昼の十二時から夜の十二時までの時間" },
+  { word: "正午", reading: "しょうご", meaning: "昼の十二時" },
+  { word: "岩石", reading: "がんせき", meaning: "岩や石" },
+  { word: "文字", reading: "もじ", meaning: "言葉を書き表すしるし" },
+  { word: "山道", reading: "やまみち", meaning: "山にある道" },
+  { word: "金魚", reading: "きんぎょ", meaning: "赤い色などのきれいな小さな魚" },
+  { word: "水田", reading: "すいでん", meaning: "水をはった田んぼ" },
+  { word: "場合", reading: "ばあい", meaning: "その時やその場面" },
+  { word: "天気", reading: "てんき", meaning: "空の晴れや雨などの様子" },
+  { word: "今年", reading: "ことし", meaning: "今の年" },
+  { word: "半分", reading: "はんぶん", meaning: "二つに分けた一つ" },
+  { word: "一組", reading: "ひとくみ", meaning: "ひとつに集まった組" },
+  { word: "売買", reading: "ばいばい", meaning: "売ることと買うこと" },
+  { word: "下手", reading: "へた", meaning: "うまくできないこと" },
+  { word: "明日", reading: "あした", meaning: "今日のつぎの日" },
+  { word: "今朝", reading: "けさ", meaning: "今日の朝" },
+  { word: "川原", reading: "かわら", meaning: "川の近くにある石やすなの場所" },
+  { word: "七夕", reading: "たなばた", meaning: "七月七日の夜のお祝い" },
+  { word: "一度", reading: "いちど", meaning: "一回" },
+  { word: "気分", reading: "きぶん", meaning: "その時の心や体の様子" },
+  { word: "親友", reading: "しんゆう", meaning: "とてもなかのよい友達" },
+  { word: "東京", reading: "とうきょう", meaning: "日本の首都" },
+  { word: "麦茶", reading: "むぎちゃ", meaning: "大麦から作られるお茶" },
+  { word: "朝食", reading: "ちょうしょく", meaning: "朝食べるごはん" },
+  { word: "昼食", reading: "ちゅうしょく", meaning: "昼食べるごはん" },
+  { word: "夕食", reading: "ゆうしょく", meaning: "夕方や夜に食べるごはん" },
+  { word: "大会", reading: "たいかい", meaning: "たくさんの人が集まって行う催し" },
+  { word: "地名", reading: "ちめい", meaning: "土地や場所の名前" },
+  { word: "名言", reading: "めいげん", meaning: "心に残るすぐれた言葉" },
+  { word: "天才", reading: "てんさい", meaning: "生まれつきすぐれた力をもつ人" },
+  { word: "雨天", reading: "うてん", meaning: "雨がふっている天気" },
+  { word: "丸太", reading: "まるた", meaning: "切りだしたままの丸い木" },
+  { word: "土間", reading: "どま", meaning: "家の中で床をはらずに土のままの場所" },
+  { word: "図画", reading: "ずが", meaning: "絵を書くことやその絵" },
+  { word: "汽車", reading: "きしゃ", meaning: "けむりをはきながら走る車の乗り物" },
+  { word: "木刀", reading: "ぼくとう", meaning: "木で作った刀" },
+  { word: "方角", reading: "ほうがく", meaning: "東・西・南・北などの向き" },
+  { word: "当番", reading: "とうばん", meaning: "順番でするその日の仕事のこと" },
+  { word: "直線", reading: "ちょくせん", meaning: "まっすぐな線" },
+  { word: "強弱", reading: "きょうじゃく", meaning: "強いことと弱いこと" },
+  { word: "雪原", reading: "せつげん", meaning: "一面に雪がふりつもった野原" },
+  { word: "風船", reading: "ふうせん", meaning: "空気を入れてふくらませるおもちゃ" },
+  { word: "想像", reading: "そうぞう", meaning: "心の中で形や姿を思いえがくこと" },
+  { word: "倉庫", reading: "そうこ", meaning: "品物や材料をしまっておく建物" },
+  { word: "名案", reading: "めいあん", meaning: "とてもよい考えや思いつき" },
+  { word: "夢中", reading: "むちゅう", meaning: "心をとられてほかのことを忘れること" },
+  { word: "大空", reading: "おおぞら", meaning: "ひろく大きな空" },
+  { word: "努力", reading: "どりょく", meaning: "目的のために骨を折ってがんばること" },
+  { word: "分類", reading: "ぶんるい", meaning: "種類ごとに分けること" },
+  { word: "資料", reading: "しりょう", meaning: "研究や調べものの材料となるもの" },
+  { word: "活字", reading: "かつじ", meaning: "印刷に使う文字の形" },
+  { word: "太鼓", reading: "たいこ", meaning: "革をはってたたいて音を出す楽器" },
+  { word: "内容", reading: "ないよう", meaning: "中身や書いてあることの意味" },
+  { word: "参加", reading: "さんか", meaning: "集まりや行事に入ること" },
+  { word: "職員", reading: "しょくいん", meaning: "会社や学校などで働く人" },
+  { word: "生育", reading: "せいいく", meaning: "生長して育つこと" },
+  { word: "司書", reading: "ししょ", meaning: "図書室や図書館で本を管理する仕事の人" },
+  { word: "筆順", reading: "ひつじゅん", meaning: "文字を書くときの線の順番" },
+  { word: "音訓", reading: "おんくん", meaning: "漢字の音読みと訓読み" },
+  { word: "気候", reading: "きこう", meaning: "一年を通した天気や寒さ暑さの様子" },
+  { word: "土地", reading: "とち", meaning: "地面や場所" },
+  { word: "伝統", reading: "でんとう", meaning: "昔から代々受け継がれてきたこと" },
+  { word: "特色", reading: "とくしょく", meaning: "他とちがう目立つところ" },
+  { word: "産業", reading: "さんぎょう", meaning: "農業や工業など社会の仕事" },
+  { word: "生産", reading: "せいさん", meaning: "ものを作り出すこと" },
+  { word: "消費", reading: "しょうひ", meaning: "使ったり食べたりして消費すること" },
+  { word: "警察", reading: "けいさつ", meaning: "町の安全を守り事件を防ぐ仕事" },
+  { word: "消防", reading: "しょうぼう", meaning: "火事を消したり人を助けたりすること" },
+  { word: "安全", reading: "あんぜん", meaning: "危険がないこと" },
+  { word: "事件", reading: "じけん", meaning: "世の中で起きた問題や犯罪" },
+  { word: "防災", reading: "ぼうさい", meaning: "災害を防ぎ被害を少なくすること" },
+  { word: "避難", reading: "ひなん", meaning: "安全な場所へ逃げること" },
+  { word: "記号", reading: "きごう", meaning: "意味を表すしるし" },
+  { word: "方位", reading: "ほうい", meaning: "方角の位置" },
+  { word: "縮尺", reading: "しゅくしゃく", meaning: "実際の大きさを小さく縮めた割合" },
+  { word: "地形", reading: "ちけい", meaning: "土地の形や傾き" },
+  { word: "平野", reading: "へいや", meaning: "ひろく平らな土地" },
+  { word: "盆地", reading: "ぼんち", meaning: "まわりを山に囲まれた低い土地" },
+  { word: "台地", reading: "だいち", meaning: "周りより一段高い平らな土地" },
+  { word: "農家", reading: "のうか", meaning: "農業をして作物を育てる家" },
+  { word: "果物", reading: "くだもの", meaning: "木や草に実る甘い食べ物" },
+  { word: "畜産", reading: "ちくさん", meaning: "牛や豚などを育てる仕事" },
+  { word: "水産", reading: "すいさん", meaning: "海や川で魚をとること" },
+  { word: "機械", reading: "きかい", meaning: "動いて仕事をする道具" },
+  { word: "原料", reading: "げんりょう", meaning: "製品を作る元となる材料" },
+  { word: "製品", reading: "せいひん", meaning: "工場で作り出した品物" },
+  { word: "輸出", reading: "ゆしゅつ", meaning: "外国へ品物を売り送ること" },
+  { word: "輸入", reading: "ゆにゅう", meaning: "外国から品物を買い入れること" },
+  { word: "貿易", reading: "ぼうえき", meaning: "外国と品物を売り買いすること" },
+  { word: "商業", reading: "しょうぎょう", meaning: "品物を売り買いする仕事" },
+  { word: "商店", reading: "しょうてん", meaning: "品物を売るお店" },
+  { word: "販売", reading: "はんばい", meaning: "品物を売ること" },
+  { word: "便利", reading: "べんり", meaning: "役立って都合がよいこと" },
+  { word: "開発", reading: "かいはつ", meaning: "山や土地を開いて新しく使うこと" },
+  { word: "保護", reading: "ほご", meaning: "かばって大切に守ること" },
+  { word: "環境", reading: "かんきょう", meaning: "まわりの自然や生活の様子" },
+  { word: "分別", reading: "ぶんべつ", meaning: "種類ごとに分けること" },
+  { word: "資源", reading: "しげん", meaning: "役立つ材料やエネルギーのもと" },
+  { word: "通信", reading: "つうしん", meaning: "知らせや思いを遠くへ送ること" },
+  { word: "情報", reading: "じょうほう", meaning: "事柄や出来事についての知らせ" },
+  { word: "放送", reading: "ほうそう", meaning: "ラジオやテレビで声や映像を送ること" },
+  { word: "新聞", reading: "しんぶん", meaning: "世の中の出来事を書いて配る紙" },
+  { word: "記録", reading: "きろく", meaning: "書きしるして残すこと" },
+  { word: "観察", reading: "かんさつ", meaning: "じっくり見て変化を調べること" },
+  { word: "予想", reading: "よそう", meaning: "前もって考えること" },
+  { word: "結果", reading: "けっか", meaning: "あることがもとになっておこったこと" },
+  { word: "原因", reading: "げんいん", meaning: "ことが起こったもと" },
+  { word: "変化", reading: "へんか", meaning: "前と形や様子が変わること" },
+  { word: "共通", reading: "きょうつう", meaning: "二つ以上のものに同じ部分があること" },
+  { word: "違い", reading: "ちがい", meaning: "同じでないところ" },
+  { word: "関係", reading: "かんけい", meaning: "かかわりあい" },
+  { word: "影響", reading: "えいきょう", meaning: "他に向かって与える力や変化" },
+  { word: "解決", reading: "かいけつ", meaning: "困った問題をよく治めること" },
+  { word: "工夫", reading: "くふう", meaning: "よい方法をいろいろ考えること" },
+  { word: "発表", reading: "はっぴょう", meaning: "みんなの前で考えを知らせること" },
+  { word: "討論", reading: "とうろん", meaning: "意見を出し合って話し合うこと" },
+  { word: "段落", reading: "だんらく", meaning: "文章のまとまりの区切り" },
+  { word: "場面", reading: "ばめん", meaning: "物語や劇のそのときの様子" },
+  { word: "背景", reading: "はいけい", meaning: "後ろの景色やその時の状況" },
+  { word: "主題", reading: "しゅだい", meaning: "作品で一番伝えたい考え" },
+  { word: "人口", reading: "じんこう", meaning: "そこに住んでいる人の数" },
+  { word: "面積", reading: "めんせき", meaning: "広さの大きさ" },
+  { word: "気温", reading: "きおん", meaning: "空気のあたたかさやつめたさ" },
+  { word: "割合", reading: "わりあい", meaning: "全体に対する大きさの比" },
+  { word: "平均", reading: "へいきん", meaning: "平らにならした値" },
+  { word: "小数", reading: "しょうすう", meaning: "1より小さい数を表す数" },
+  { word: "分数", reading: "ぶんすう", meaning: "全体をいくつかに分けた数" },
+  { word: "図形", reading: "ずけい", meaning: "線や面でできた形" },
+  { word: "平行", reading: "へいこう", meaning: "二つの線がどこまでいっても交わらないこと" },
+  { word: "垂直", reading: "すいちょく", meaning: "まっすぐ９０度に交わること" },
+  { word: "角度", reading: "かくど", meaning: "角の開き具合の大きさ" },
+  { word: "単位", reading: "たんい", meaning: "長さなどをはかる基準" },
+  { word: "体積", reading: "たいせき", meaning: "立体の大きさ" },
+  { word: "重さ", reading: "おもさ", meaning: "目方・手ごたえ" },
+  { word: "時刻", reading: "じこく", meaning: "時の流れの中のある決まった時" },
+  { word: "規則", reading: "きそく", meaning: "決まりごと" },
+  { word: "整理", reading: "せいり", meaning: "整えてまとめること" },
+  { word: "点検", reading: "てんけん", meaning: "一つずつ調べ確かめること" },
+  { word: "反省", reading: "はんせい", meaning: "自分の行いを振り返って考えること" },
+  { word: "協力", reading: "きょうりょく", meaning: "力を合わせて助け合うこと" },
+  { word: "責任", reading: "せきにん", meaning: "自分の引き受けた務め" },
+  { word: "自主", reading: "じしゅ", meaning: "人に頼らず自分で進んで行うこと" },
+  { word: "健康", reading: "けんこう", meaning: "体が丈夫で元気に過ごせること" },
+  { word: "衛生", reading: "えいせい", meaning: "体を清潔にして病気を防ぐこと" },
+  { word: "栄養", reading: "えいよう", meaning: "体を育てる食べ物の成分" },
+  { word: "運動", reading: "うんどう", meaning: "体を動かすこと" },
+  { word: "成長", reading: "せいちょう", meaning: "体や心が大きくなること" },
+  { word: "平和", reading: "へいわ", meaning: "争いがなくおだやかなこと" },
+  { word: "最初", reading: "さいしょ", meaning: "いちばんはじめ" },
+  { word: "戦争", reading: "せんそう", meaning: "国と国が戦うこと" },
+  { word: "配給", reading: "はいきゅう", meaning: "みんなに分け配ること" },
+  { word: "一生", reading: "いっしょう", meaning: "生まれてから死ぬまでのあいだ" },
+  { word: "包帯", reading: "ほうたい", meaning: "けがをした所にまく布" },
+  { word: "軍歌", reading: "ぐんか", meaning: "兵隊がうたう歌" },
+  { word: "一輪", reading: "いちりん", meaning: "花や車輪の一つ" },
+  { word: "情景", reading: "じょうけい", meaning: "心に感じられる景色" },
+  { word: "陽気", reading: "ようき", meaning: "あたたかく明るい気分" },
+  { word: "秋分", reading: "しゅうぶん", meaning: "昼と夜の長さが同じになる秋の日" },
+  { word: "青春", reading: "せいしゅん", meaning: "若い時代" },
+  { word: "前進", reading: "ぜんしん", meaning: "前へすすむこと" },
+  { word: "後半", reading: "こうはん", meaning: "うしろの半分" },
+  { word: "人形", reading: "にんぎょう", meaning: "人の形に作ったおもちゃ" },
+  { word: "深夜", reading: "しんや", meaning: "夜ふかくの遅い時間" },
+  { word: "地下", reading: "ちか", meaning: "地面の下" },
+  { word: "愛犬", reading: "あいけん", meaning: "かわいがっている犬" },
+  { word: "散歩", reading: "さんぽ", meaning: "ぶらぶら歩くこと" },
+  { word: "集計", reading: "しゅうけい", meaning: "数を集めて計算すること" },
+  { word: "児童", reading: "じどう", meaning: "小学生くらいの子ども" }
+];
+
+/* 小学校4年生向け 多文字熟語データベース */
+const IDIOM_MULTICHAR_DATABASE = [
+  { word: "図書館", reading: "としょかん", meaning: "たくさんの本があってかりられる場所" },
+  { word: "百科事典", reading: "ひゃっかじてん", meaning: "世の中のいろいろな知識を集めて説明した本" },
+  { word: "新幹線", reading: "しんかんせん", meaning: "とてもはやく走る日本の電車" },
+  { word: "飛行機", reading: "ひこうき", meaning: "空を高く飛んで移動する乗り物" },
+  { word: "美術品", reading: "びじゅつひん", meaning: "絵や彫刻など美しい芸術の作品" },
+  { word: "具体的", reading: "ぐたいてき", meaning: "形があってわかりやすいさま" },
+  { word: "研究者", reading: "けんきゅうしゃ", meaning: "深く調べたり勉強したりする人" },
+  { word: "自分自身", reading: "じぶんじしん", meaning: "ほかの誰でもなく自分自身のこと" },
+  { word: "都道府県", reading: "とどうふけん", meaning: "日本を分けた47の行政の単位" },
+  { word: "市区町村", reading: "しくちょうそん", meaning: "都道府県の中にあるまちの単位" },
+  { word: "小学校", reading: "しょうがっこう", meaning: "6年間通って勉強する学校" },
+  { word: "中学校", reading: "ちゅうがっこう", meaning: "小学校のつぎに行く学校" },
+  { word: "動物園", reading: "どうぶつえん", meaning: "たくさんの動物を見られる場所" },
+  { word: "植物園", reading: "しょくぶつえん", meaning: "めずらしい花や木をそだてる場所" },
+  { word: "運動会", reading: "うんどうかい", meaning: "走ったりおどったりする学校の行事" },
+  { word: "青信号", reading: "あおしんごう", meaning: "すすんでもよいことを示す信号" },
+  { word: "赤信号", reading: "あかしんごう", meaning: "止まらなければいけない信号" },
+  { word: "春夏秋冬", reading: "しゅんかしゅうとう", meaning: "春・夏・秋・冬の四つの季節" },
+  { word: "自動車", reading: "じどうしゃ", meaning: "エンジンやモーターで動く車" },
+  { word: "外国語", reading: "がいこくご", meaning: "外国でつかわれている言葉" },
+  { word: "三角形", reading: "さんかくけい", meaning: "三つの角をもつ形" },
+  { word: "東西南北", reading: "とうざいなんぼく", meaning: "東・西・南・北の四つの方向" },
+  { word: "一年間", reading: "いちねんかん", meaning: "一年のあいだ" },
+  { word: "日曜日", reading: "にちようび", meaning: "一週間のはじめの日" },
+  { word: "月曜日", reading: "げつようび", meaning: "日曜日につづく日" },
+  { word: "火曜日", reading: "かようび", meaning: "月曜日につづく日" },
+  { word: "水曜日", reading: "すいようび", meaning: "火曜日につづく日" },
+  { word: "木曜日", reading: "もくようび", meaning: "水曜日につづく日" },
+  { word: "金曜日", reading: "きんようび", meaning: "木曜日につづく日" },
+  { word: "土曜日", reading: "どようび", meaning: "金曜日につづく日" },
+  { word: "小学生", reading: "しょうがくせい", meaning: "小学校にかよう子ども" },
+  { word: "教科書", reading: "きょうかしょ", meaning: "学校で勉強につかう本" },
+  { word: "十二支", reading: "じゅうにし", meaning: "ね・うし・とらなどの十二の動物" },
+  { word: "魚市場", reading: "うおいちば", meaning: "魚を売ったり買ったりする場所" },
+  { word: "水平線", reading: "すいへいせん", meaning: "海と空が交わって平らに見える線" },
+  { word: "漢字辞典", reading: "かんじじてん", meaning: "漢字の意味や読み方を集めた本" },
+  { word: "用水路", reading: "ようすいろ", meaning: "畑や田んぼに水をひくみぞ" },
+  { word: "登場人物", reading: "とうじょうじんぶつ", meaning: "お話に出てくる人や生き物" },
+  { word: "気持ち", reading: "きもち", meaning: "心で感じていること" },
+  { word: "類義語", reading: "るいぎご", meaning: "意味が似ている言葉" },
+  { word: "対義語", reading: "たいぎご", meaning: "反対の意味を持つ言葉" },
+  { word: "慣用句", reading: "かんようく", meaning: "二つ以上の言葉が決まった意味を作る組" },
+  { word: "四字熟語", reading: "よじじゅくご", meaning: "四つの漢字でできた言葉" },
+  { word: "県庁所在地", reading: "けんちょうしょざいち", meaning: "県庁のある役所の場所" },
+  { word: "降水量", reading: "こうすいりょう", meaning: "降った雨や雪の量" },
+  { word: "四角形", reading: "しかくけい", meaning: "四つの角と直線で囲まれた形" },
+  { word: "立方体", reading: "りっぽうたい", meaning: "正方形六つで囲まれた立体" },
+  { word: "直方体", reading: "ちょくほうたい", meaning: "長方形六つで囲まれた立体" },
+  { word: "見取り図", reading: "みとりず", meaning: "形をななめから見た図" },
+  { word: "展開図", reading: "てんかいず", meaning: "箱を開いて平らにした図" }
+];
+
+// 全データベース統合
+const IDIOM_DATABASE = [...IDIOM_2CHAR_DATABASE, ...IDIOM_MULTICHAR_DATABASE];
+
+// --- 小学校4年生向け 作文データ（全50パターン・各5熟語） ---
+const PRESET_COMPOSITIONS = [
+  { words: ["都道府県", "県庁所在地", "地形", "特色", "人口"], html: "社会科で日本の<span class=\"draggable-word\" data-word=\"都道府県\"><ruby>都道府県<rt>とどうふけん</rt></ruby></span>と<span class=\"draggable-word\" data-word=\"県庁所在地\"><ruby>県庁所在地<rt>けんちょうしょざいち</rt></ruby></span>を調べました。それぞれの<span class=\"draggable-word\" data-word=\"地形\"><ruby>地形<rt>ちけい</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"特色\"><ruby>特色<rt>とくしょく</rt></ruby></span>、<span class=\"draggable-word\" data-word=\"人口\"><ruby>人口<rt>じんこう</rt></ruby></span>の違いがわかっておもしろかったです。" },
+  { words: ["平野", "盆地", "台地", "気候", "降水量"], html: "同じ日本でも、<span class=\"draggable-word\" data-word=\"平野\"><ruby>平野<rt>へいや</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"盆地\"><ruby>盆地<rt>ぼんち</rt></ruby></span>、<span class=\"draggable-word\" data-word=\"台地\"><ruby>台地<rt>だいち</rt></ruby></span>など土地のつくりによって<span class=\"draggable-word\" data-word=\"気候\"><ruby>気候<rt>きこう</rt></ruby></span>や一年の<span class=\"draggable-word\" data-word=\"降水量\"><ruby>降水量<rt>こうすいりょう</rt></ruby></span>が大きく変わります。" },
+  { words: ["農家", "用水路", "生産", "果物", "野菜"], html: "昔の人々が苦労して作った<span class=\"draggable-word\" data-word=\"用水路\"><ruby>用水路<rt>ようすいろ</rt></ruby></span>のおかげで、今ではたくさんの<span class=\"draggable-word\" data-word=\"農家\"><ruby>農家<rt>のうか</rt></ruby></span>がおいしい<span class=\"draggable-word\" data-word=\"野菜\"><ruby>野菜<rt>やさい</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"果物\"><ruby>果物<rt>くだもの</rt></ruby></span>を<span class=\"draggable-word\" data-word=\"生産\"><ruby>生産<rt>せいさん</rt></ruby></span>しています。" },
+  { words: ["伝統", "産業", "工夫", "原料", "製品"], html: "わたしたちの地域に伝わる<span class=\"draggable-word\" data-word=\"伝統\"><ruby>伝統<rt>でんとう</rt></ruby></span><span class=\"draggable-word\" data-word=\"産業\"><ruby>産業<rt>さんぎょう</rt></ruby></span>の工房を見学しました。職人の<span class=\"draggable-word\" data-word=\"工夫\"><ruby>工夫<rt>くふう</rt></ruby></span>によって、自然の<span class=\"draggable-word\" data-word=\"原料\"><ruby>原料<rt>げんりょう</rt></ruby></span>からすばらしい<span class=\"draggable-word\" data-word=\"製品\"><ruby>製品<rt>せいひん</rt></ruby></span>が作られます。" },
+  { words: ["警察", "消防", "防災", "避難", "安全"], html: "町の<span class=\"draggable-word\" data-word=\"安全\"><ruby>安全<rt>あんぜん</rt></ruby></span>を守るために、<span class=\"draggable-word\" data-word=\"警察\"><ruby>警察<rt>けいさつ</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"消防\"><ruby>消防<rt>しょうぼう</rt></ruby></span>の人たちが毎日働いています。わたしたちも<span class=\"draggable-word\" data-word=\"防災\"><ruby>防災<rt>ぼうさい</rt></ruby></span>の意識を高め、いざというときの<span class=\"draggable-word\" data-word=\"避難\"><ruby>避難<rt>ひなん</rt></ruby></span>場所を確認しておきます。" },
+  { words: ["環境", "保護", "資源", "分別", "協力"], html: "地球の<span class=\"draggable-word\" data-word=\"環境\"><ruby>環境<rt>かんきょう</rt></ruby></span>を<span class=\"draggable-word\" data-word=\"保護\"><ruby>保護<rt>ほご</rt></ruby></span>するためには、かぎりある<span class=\"draggable-word\" data-word=\"資源\"><ruby>資源<rt>しげん</rt></ruby></span>を大切にすることが必要です。ごみの<span class=\"draggable-word\" data-word=\"分別\"><ruby>分別<rt>ぶんべつ</rt></ruby></span>にみんなで<span class=\"draggable-word\" data-word=\"協力\"><ruby>協力<rt>きょうりょく</rt></ruby></span>しましょう。" },
+  { words: ["観察", "予想", "実験", "結果", "記録"], html: "理科の授業でヘチマの<span class=\"draggable-word\" data-word=\"観察\"><ruby>観察<rt>かんさつ</rt></ruby></span>を続けています。どう育つかを<span class=\"draggable-word\" data-word=\"予想\"><ruby>予想<rt>よそう</rt></ruby></span>してから<span class=\"draggable-word\" data-word=\"実験\"><ruby>実験<rt>じっけん</rt></ruby></span>を行い、わかった<span class=\"draggable-word\" data-word=\"結果\"><ruby>結果<rt>けっか</rt></ruby></span>をカードに詳しく<span class=\"draggable-word\" data-word=\"記録\"><ruby>記録<rt>きろく</rt></ruby></span>しました。" },
+  { words: ["気温", "変化", "原因", "関係", "影響"], html: "一日の<span class=\"draggable-word\" data-word=\"気温\"><ruby>気温<rt>きおん</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"変化\"><ruby>変化<rt>へんか</rt></ruby></span>と天気の<span class=\"draggable-word\" data-word=\"関係\"><ruby>関係<rt>かんけい</rt></ruby></span>を調べました。太陽の光の当たり方が大きな<span class=\"draggable-word\" data-word=\"原因\"><ruby>原因<rt>げんいん</rt></ruby></span>となって、空気のあたたかさに<span class=\"draggable-word\" data-word=\"影響\"><ruby>影響<rt>えいきょう</rt></ruby></span>を与えています。" },
+  { words: ["図形", "四角形", "平行", "垂直", "角度"], html: "算数の時間にいろいろな<span class=\"draggable-word\" data-word=\"図形\"><ruby>図形<rt>ずけい</rt></ruby></span>をかきました。<span class=\"draggable-word\" data-word=\"平行\"><ruby>平行<rt>へいこう</rt></ruby></span>な辺や<span class=\"draggable-word\" data-word=\"垂直\"><ruby>垂直<rt>すいちょく</rt></ruby></span>に交わる線を見つけ、分度器を使って<span class=\"draggable-word\" data-word=\"四角形\"><ruby>四角形<rt>しかくけい</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"角度\"><ruby>角度<rt>かくど</rt></ruby></span>を測りました。" },
+  { words: ["立方体", "直方体", "見取り図", "展開図", "面積"], html: "工作用紙で<span class=\"draggable-word\" data-word=\"立方体\"><ruby>立方体<rt>りっぽうたい</rt></ruby></span>と<span class=\"draggable-word\" data-word=\"直方体\"><ruby>直方体<rt>ちょくほうたい</rt></ruby></span>を作りました。まず<span class=\"draggable-word\" data-word=\"見取り図\"><ruby>見取り図<rt>みとりず</rt></ruby></span>をかいてから<span class=\"draggable-word\" data-word=\"展開図\"><ruby>展開図<rt>てんかいず</rt></ruby></span>を組み立て、面の<span class=\"draggable-word\" data-word=\"面積\"><ruby>面積<rt>めんせき</rt></ruby></span>も計算しました。" },
+  { words: ["小数", "分数", "割合", "平均", "単位"], html: "四年生の算数では、<span class=\"draggable-word\" data-word=\"小数\"><ruby>小数<rt>しょうすう</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"分数\"><ruby>分数<rt>ぶんすう</rt></ruby></span>の計算を学びます。長さや広さの<span class=\"draggable-word\" data-word=\"単位\"><ruby>単位<rt>たんい</rt></ruby></span>に気をつけながら、<span class=\"draggable-word\" data-word=\"平均\"><ruby>平均<rt>へいきん</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"割合\"><ruby>割合<rt>わりあい</rt></ruby></span>の考え方にも挑戦しました。" },
+  { words: ["登場人物", "気持ち", "場面", "背景", "主題"], html: "物語を読んで、<span class=\"draggable-word\" data-word=\"登場人物\"><ruby>登場人物<rt>とうじょうじんぶつ</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"気持ち\"><ruby>気持ち<rt>きもち</rt></ruby></span>の変化を考えました。それぞれの<span class=\"draggable-word\" data-word=\"場面\"><ruby>場面<rt>ばめん</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"背景\"><ruby>背景<rt>はいけい</rt></ruby></span>を想像すると、作者が伝えたい<span class=\"draggable-word\" data-word=\"主題\"><ruby>主題<rt>しゅだい</rt></ruby></span>が見えてきます。" },
+  { words: ["漢字辞典", "筆順", "音訓", "画数", "文字"], html: "<span class=\"draggable-word\" data-word=\"漢字辞典\"><ruby>漢字辞典<rt>かんじじてん</rt></ruby></span>を使って新しい<span class=\"draggable-word\" data-word=\"文字\"><ruby>文字<rt>もじ</rt></ruby></span>を調べました。<span class=\"draggable-word\" data-word=\"画数\"><ruby>画数<rt>かくすう</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"音訓\"><ruby>音訓<rt>おんくん</rt></ruby></span>の読み方だけでなく、正しい<span class=\"draggable-word\" data-word=\"筆順\"><ruby>筆順<rt>ひつじゅん</rt></ruby></span>も確認してノートに練習しました。" },
+  { words: ["類義語", "対義語", "慣用句", "四字熟語", "言葉"], html: "国語の時間にいろいろな<span class=\"draggable-word\" data-word=\"言葉\"><ruby>言葉<rt>ことば</rt></ruby></span>のきまりを学習しました。<span class=\"draggable-word\" data-word=\"類義語\"><ruby>類義語<rt>るいぎご</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"対義語\"><ruby>対義語<rt>たいぎご</rt></ruby></span>、それに<span class=\"draggable-word\" data-word=\"慣用句\"><ruby>慣用句<rt>かんようく</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"四字熟語\"><ruby>四字熟語<rt>よじじゅくご</rt></ruby></span>を知ると、表現が豊かになります。" },
+  { words: ["段落", "内容", "要約", "共通", "違い"], html: "説明文をいくつかの<span class=\"draggable-word\" data-word=\"段落\"><ruby>段落<rt>だんらく</rt></ruby></span>に分けて、<span class=\"draggable-word\" data-word=\"内容\"><ruby>内容<rt>ないよう</rt></ruby></span>を短く<span class=\"draggable-word\" data-word=\"要約\"><ruby>要約<rt>ようやく</rt></ruby></span>しました。二つの意見の<span class=\"draggable-word\" data-word=\"共通\"><ruby>共通<rt>きょうつう</rt></ruby></span>する点と<span class=\"draggable-word\" data-word=\"違い\"><ruby>違い<rt>ちがい</rt></ruby></span>を整理して表にまとめました。" },
+  { words: ["討論", "意見", "発表", "解決", "名案"], html: "クラスみんなで問題を<span class=\"draggable-word\" data-word=\"解決\"><ruby>解決<rt>かいけつ</rt></ruby></span>するための<span class=\"draggable-word\" data-word=\"討論\"><ruby>討論<rt>とうろん</rt></ruby></span>をしました。一人ひとりが自分の<span class=\"draggable-word\" data-word=\"意見\"><ruby>意見<rt>いけん</rt></ruby></span>を<span class=\"draggable-word\" data-word=\"発表\"><ruby>発表<rt>はっぴょう</rt></ruby></span>し合った結果、とてもよい<span class=\"draggable-word\" data-word=\"名案\"><ruby>名案<rt>めいあん</rt></ruby></span>が浮かびました。" },
+  { words: ["貿易", "輸出", "輸入", "商業", "販売"], html: "日本は世界中の国々と<span class=\"draggable-word\" data-word=\"貿易\"><ruby>貿易<rt>ぼうえき</rt></ruby></span>を行っています。自動車や機械を<span class=\"draggable-word\" data-word=\"輸出\"><ruby>輸出<rt>ゆしゅつ</rt></ruby></span>し、食べ物や燃料を<span class=\"draggable-word\" data-word=\"輸入\"><ruby>輸入<rt>ゆにゅう</rt></ruby></span>して、<span class=\"draggable-word\" data-word=\"商業\"><ruby>商業<rt>しょうぎょう</rt></ruby></span>やお店での<span class=\"draggable-word\" data-word=\"販売\"><ruby>販売<rt>はんばい</rt></ruby></span>を支えています。" },
+  { words: ["畜産", "水産", "消費", "商店", "便利"], html: "日本の食卓には、<span class=\"draggable-word\" data-word=\"畜産\"><ruby>畜産<rt>ちくさん</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"水産\"><ruby>水産<rt>すいさん</rt></ruby></span>など多くの人々の仕事が届いています。近くの<span class=\"draggable-word\" data-word=\"商店\"><ruby>商店<rt>しょうてん</rt></ruby></span>でいつでも買い物ができて<span class=\"draggable-word\" data-word=\"便利\"><ruby>便利<rt>べんり</rt></ruby></span>ですが、<span class=\"draggable-word\" data-word=\"消費\"><ruby>消費<rt>しょうひ</rt></ruby></span>するわたしたちも感謝の気持ちを忘れないようにしたいです。" },
+  { words: ["通信", "情報", "放送", "新聞", "資料"], html: "<span class=\"draggable-word\" data-word=\"通信\"><ruby>通信<rt>つうしん</rt></ruby></span>技術が発達し、テレビの<span class=\"draggable-word\" data-word=\"放送\"><ruby>放送<rt>ほうそう</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"新聞\"><ruby>新聞<rt>しんぶん</rt></ruby></span>などからたくさんの<span class=\"draggable-word\" data-word=\"情報\"><ruby>情報<rt>じょうほう</rt></ruby></span>を手に入れられます。正しい<span class=\"draggable-word\" data-word=\"資料\"><ruby>資料<rt>しりょう</rt></ruby></span>を選んで調べ学習に役立てます。" },
+  { words: ["健康", "衛生", "栄養", "運動", "成長"], html: "<span class=\"draggable-word\" data-word=\"健康\"><ruby>健康<rt>けんこう</rt></ruby></span>な体をつくるには、手洗いなどの<span class=\"draggable-word\" data-word=\"衛生\"><ruby>衛生<rt>えいせい</rt></ruby></span>に気をつけ、<span class=\"draggable-word\" data-word=\"栄養\"><ruby>栄養<rt>えいよう</rt></ruby></span>バランスのよい食事をとることが大切です。適度な<span class=\"draggable-word\" data-word=\"運動\"><ruby>運動<rt>うんどう</rt></ruby></span>もして、心も体も大きく<span class=\"draggable-word\" data-word=\"成長\"><ruby>成長<rt>せいちょう</rt></ruby></span>したいです。" },
+  { words: ["自主", "責任", "整理", "点検", "反省"], html: "四年生になり、委員会活動で<span class=\"draggable-word\" data-word=\"自主\"><ruby>自主<rt>じしゅ</rt></ruby></span>的に行動する場面が増えました。自分の仕事に<span class=\"draggable-word\" data-word=\"責任\"><ruby>責任<rt>せきにん</rt></ruby></span>をもち、道具の<span class=\"draggable-word\" data-word=\"整理\"><ruby>整理<rt>せいり</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"点検\"><ruby>点検<rt>てんけん</rt></ruby></span>をして、毎日の活動を<span class=\"draggable-word\" data-word=\"反省\"><ruby>反省<rt>はんせい</rt></ruby></span>しています。" },
+  { words: ["地図", "方位", "記号", "縮尺", "開発"], html: "社会の授業で<span class=\"draggable-word\" data-word=\"地図\"><ruby>地図<rt>ちず</rt></ruby></span>の読み方を習いました。<span class=\"draggable-word\" data-word=\"方位\"><ruby>方位<rt>ほうい</rt></ruby></span>や地図<span class=\"draggable-word\" data-word=\"記号\"><ruby>記号<rt>きごう</rt></ruby></span>、<span class=\"draggable-word\" data-word=\"縮尺\"><ruby>縮尺<rt>しゅくしゃく</rt></ruby></span>を確かめると、昔と今の町の<span class=\"draggable-word\" data-word=\"開発\"><ruby>開発<rt>かいはつ</rt></ruby></span>の様子がよく比べられます。" },
+  { words: ["司書", "分類", "図書館", "職員", "参加"], html: "<span class=\"draggable-word\" data-word=\"図書館\"><ruby>図書館<rt>としょかん</rt></ruby></span>のバックヤードツアーに<span class=\"draggable-word\" data-word=\"参加\"><ruby>参加<rt>さんか</rt></ruby></span>しました。<span class=\"draggable-word\" data-word=\"司書\"><ruby>司書<rt>ししょ</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"職員\"><ruby>職員<rt>しょくいん</rt></ruby></span>の方々が、何万冊もの本を種類ごとに<span class=\"draggable-word\" data-word=\"分類\"><ruby>分類<rt>ぶんるい</rt></ruby></span>して並べていることを知りました。" },
+  { words: ["海岸", "水平線", "情景", "想像", "大空"], html: "夏休みに訪れた<span class=\"draggable-word\" data-word=\"海岸\"><ruby>海岸<rt>かいがん</rt></ruby></span>で、遠くの<span class=\"draggable-word\" data-word=\"水平線\"><ruby>水平線<rt>すいへいせん</rt></ruby></span>に沈む夕日を見ました。<span class=\"draggable-word\" data-word=\"大空\"><ruby>大空<rt>おおぞら</rt></ruby></span>が真っ赤に染まる美しい<span class=\"draggable-word\" data-word=\"情景\"><ruby>情景<rt>じょうけい</rt></ruby></span>は、写真を見返すたびに心に<span class=\"draggable-word\" data-word=\"想像\"><ruby>想像<rt>そうぞう</rt></ruby></span>できます。" },
+  { words: ["平和", "戦争", "配給", "一生", "包帯"], html: "国語や社会で昔の<span class=\"draggable-word\" data-word=\"戦争\"><ruby>戦争<rt>せんそう</rt></ruby></span>の話を学びました。食べ物が<span class=\"draggable-word\" data-word=\"配給\"><ruby>配給<rt>はいきゅう</rt></ruby></span>制になり、<span class=\"draggable-word\" data-word=\"包帯\"><ruby>包帯<rt>ほうたい</rt></ruby></span>も足りない苦しい時代があったことを知り、<span class=\"draggable-word\" data-word=\"一生\"><ruby>一生<rt>いっしょう</rt></ruby></span><span class=\"draggable-word\" data-word=\"平和\"><ruby>平和<rt>へいわ</rt></ruby></span>を守り続けたいと思いました。" },
+  { words: ["努力", "夢中", "練習", "前進", "後半"], html: "サッカーの試合の<span class=\"draggable-word\" data-word=\"後半\"><ruby>後半<rt>こうはん</rt></ruby></span>で逆転ゴールを決めました。これまで<span class=\"draggable-word\" data-word=\"夢中\"><ruby>夢中<rt>むちゅう</rt></ruby></span>になって<span class=\"draggable-word\" data-word=\"練習\"><ruby>練習<rt>れんしゅう</rt></ruby></span>し、<span class=\"draggable-word\" data-word=\"努力\"><ruby>努力<rt>どりょく</rt></ruby></span>を積み重ねて一歩ずつ<span class=\"draggable-word\" data-word=\"前進\"><ruby>前進<rt>ぜんしん</rt></ruby></span>してきたおかげです。" },
+  { words: ["愛犬", "散歩", "陽気", "公園", "一輪"], html: "ぽかぽかと暖かい<span class=\"draggable-word\" data-word=\"陽気\"><ruby>陽気<rt>ようき</rt></ruby></span>の日に、<span class=\"draggable-word\" data-word=\"愛犬\"><ruby>愛犬<rt>あいけん</rt></ruby></span>と一緒に<span class=\"draggable-word\" data-word=\"散歩\"><ruby>散歩<rt>さんぽ</rt></ruby></span>に出かけました。<span class=\"draggable-word\" data-word=\"公園\"><ruby>公園<rt>こうえん</rt></ruby></span>の花壇にタンポポが<span class=\"draggable-word\" data-word=\"一輪\"><ruby>一輪<rt>いちりん</rt></ruby></span>咲いているのを見つけました。" },
+  { words: ["規則", "児童", "集合", "時刻", "最初"], html: "学校の<span class=\"draggable-word\" data-word=\"規則\"><ruby>規則<rt>きそく</rt></ruby></span>を守って、登校班の<span class=\"draggable-word\" data-word=\"児童\"><ruby>児童<rt>じどう</rt></ruby></span>が決められた<span class=\"draggable-word\" data-word=\"時刻\"><ruby>時刻<rt>じこく</rt></ruby></span>に<span class=\"draggable-word\" data-word=\"集合\"><ruby>集合<rt>しゅうごう</rt></ruby></span>しました。新一年生も<span class=\"draggable-word\" data-word=\"最初\"><ruby>最初<rt>さいしょ</rt></ruby></span>は緊張していましたが、すぐに元気よく歩き出しました。" },
+  { words: ["機械", "工場", "倉庫", "活字", "新聞"], html: "<span class=\"draggable-word\" data-word=\"新聞\"><ruby>新聞<rt>しんぶん</rt></ruby></span>を作る<span class=\"draggable-word\" data-word=\"工場\"><ruby>工場<rt>こうじょう</rt></ruby></span>を見学しました。大きな<span class=\"draggable-word\" data-word=\"機械\"><ruby>機械<rt>きかい</rt></ruby></span>がすごい速さで新聞を刷り上げ、広い<span class=\"draggable-word\" data-word=\"倉庫\"><ruby>倉庫<rt>そうこ</rt></ruby></span>に運ばれていきます。昔は一つひとつ<span class=\"draggable-word\" data-word=\"活字\"><ruby>活字<rt>かつじ</rt></ruby></span>を並べていたそうです。" },
+  { words: ["秋分", "生育", "自然", "土地", "野菜"], html: "<span class=\"draggable-word\" data-word=\"秋分\"><ruby>秋分<rt>しゅうぶん</rt></ruby></span>の日を過ぎると、昼と夜の長さが変わっていきます。豊かな<span class=\"draggable-word\" data-word=\"自然\"><ruby>自然<rt>しぜん</rt></ruby></span>と肥えた<span class=\"draggable-word\" data-word=\"土地\"><ruby>土地<rt>とち</rt></ruby></span>に恵まれた畑では、秋の<span class=\"draggable-word\" data-word=\"野菜\"><ruby>野菜<rt>やさい</rt></ruby></span>がぐんぐん<span class=\"draggable-word\" data-word=\"生育\"><ruby>生育<rt>せいいく</rt></ruby></span>しています。" },
+  { words: ["集計", "合計", "割合", "人数", "発表"], html: "クラス全員にとったアンケートの結果を<span class=\"draggable-word\" data-word=\"集計\"><ruby>集計<rt>しゅうけい</rt></ruby></span>しました。<span class=\"draggable-word\" data-word=\"合計\"><ruby>合計<rt>ごうけい</rt></ruby></span>の数からそれぞれの<span class=\"draggable-word\" data-word=\"割合\"><ruby>割合<rt>わりあい</rt></ruby></span>を計算し、グラフにまとめてみんなの前で<span class=\"draggable-word\" data-word=\"発表\"><ruby>発表<rt>はっぴょう</rt></ruby></span>しました。" },
+  { words: ["事件", "警察", "安全", "交通", "歩道"], html: "地域で<span class=\"draggable-word\" data-word=\"事件\"><ruby>事件<rt>じけん</rt></ruby></span>や<span class=\"draggable-word\" data-word=\"交通\"><ruby>交通<rt>こうつう</rt></ruby></span>事故が起きないように、<span class=\"draggable-word\" data-word=\"警察\"><ruby>警察<rt>けいさつ</rt></ruby></span>官や見守り隊の方々が通学路の<span class=\"draggable-word\" data-word=\"歩道\"><ruby>歩道<rt>ほどう</rt></ruby></span>に立って<span class=\"draggable-word\" data-word=\"安全\"><ruby>安全<rt>あんぜん</rt></ruby></span>を確かめてくれています。" },
+  { words: ["体積", "重さ", "単位", "比較", "実験"], html: "同じ大きさの木のブロックと鉄のブロックの<span class=\"draggable-word\" data-word=\"重さ\"><ruby>重さ<rt>おもさ</rt></ruby></span>を比べる<span class=\"draggable-word\" data-word=\"実験\"><ruby>実験<rt>じっけん</rt></ruby></span>をしました。<span class=\"draggable-word\" data-word=\"体積\"><ruby>体積<rt>たいせき</rt></ruby></span>が同じでも、物によって重さがまったく違うことがわかり、正しい<span class=\"draggable-word\" data-word=\"単位\"><ruby>単位<rt>たんい</rt></ruby></span>で記録しました。" },
+  { words: ["太鼓", "行事", "伝統", "音楽", "練習"], html: "お祭りの<span class=\"draggable-word\" data-word=\"行事\"><ruby>行事<rt>ぎょうじ</rt></ruby></span>に向けて、地域に伝わる和<span class=\"draggable-word\" data-word=\"太鼓\"><ruby>太鼓<rt>たいこ</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"練習\"><ruby>練習<rt>れんしゅう</rt></ruby></span>を始めました。<span class=\"draggable-word\" data-word=\"伝統\"><ruby>伝統<rt>でんとう</rt></ruby></span>ある<span class=\"draggable-word\" data-word=\"音楽\"><ruby>音楽<rt>おんがく</rt></ruby></span>のリズムを体で覚えて、本番で力強く叩きたいです。" },
+  { words: ["地下", "深夜", "電車", "点検", "安全"], html: "わたしたちが眠っている<span class=\"draggable-word\" data-word=\"深夜\"><ruby>深夜<rt>しんや</rt></ruby></span>の時間帯に、<span class=\"draggable-word\" data-word=\"地下\"><ruby>地下<rt>ちか</rt></ruby></span>鉄の<span class=\"draggable-word\" data-word=\"電車\"><ruby>電車<rt>でんしゃ</rt></ruby></span>が走る線路を<span class=\"draggable-word\" data-word=\"点検\"><ruby>点検<rt>てんけん</rt></ruby></span>する人たちがいます。夜通しの作業のおかげで、昼間の<span class=\"draggable-word\" data-word=\"安全\"><ruby>安全<rt>あんぜん</rt></ruby></span>な運行が守られています。" },
+  { words: ["人形", "青春", "物語", "登場人物", "感心"], html: "伝統的な<span class=\"draggable-word\" data-word=\"人形\"><ruby>人形<rt>にんぎょう</rt></ruby></span>劇を鑑賞しました。<span class=\"draggable-word\" data-word=\"青春\"><ruby>青春<rt>せいしゅん</rt></ruby></span>時代を描いたお話で、<span class=\"draggable-word\" data-word=\"登場人物\"><ruby>登場人物<rt>とうじょうじんぶつ</rt></ruby></span>が生きているかのように動く操り方のうまさにとても<span class=\"draggable-word\" data-word=\"感心\"><ruby>感心<rt>かんしん</rt></ruby></span>しました。" },
+  { words: ["早朝", "野原", "地面", "金色", "日光"], html: "<span class=\"draggable-word\" data-word=\"早朝\"><ruby>早朝<rt>そうちょう</rt></ruby></span>に起きて<span class=\"draggable-word\" data-word=\"野原\"><ruby>野原<rt>のはら</rt></ruby></span>へ散歩に行くと、<span class=\"draggable-word\" data-word=\"地面\"><ruby>地面<rt>じめん</rt></ruby></span>の草が<span class=\"draggable-word\" data-word=\"金色\"><ruby>金色<rt>きんいろ</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"日光\"><ruby>日光<rt>にっこう</rt></ruby></span>をあびてきらきらとかがやいていました。" },
+  { words: ["一面", "緑色", "草原", "空気", "気分"], html: "あたり<span class=\"draggable-word\" data-word=\"一面\"><ruby>一面<rt>いちめん</rt></ruby></span>が<span class=\"draggable-word\" data-word=\"緑色\"><ruby>緑色<rt>みどりいろ</rt></ruby></span>に広がる<span class=\"draggable-word\" data-word=\"草原\"><ruby>草原<rt>そうげん</rt></ruby></span>で深呼吸をすると、とてもきれいな<span class=\"draggable-word\" data-word=\"空気\"><ruby>空気<rt>くうき</rt></ruby></span>が胸に入って最高の<span class=\"draggable-word\" data-word=\"気分\"><ruby>気分<rt>きぶん</rt></ruby></span>になりました。" },
+  { words: ["図書館", "百科事典", "研究者", "人物", "資料"], html: "<span class=\"draggable-word\" data-word=\"図書館\"><ruby>図書館<rt>としょかん</rt></ruby></span>で分厚い<span class=\"draggable-word\" data-word=\"百科事典\"><ruby>百科事典<rt>ひゃっかじてん</rt></ruby></span>や古い<span class=\"draggable-word\" data-word=\"資料\"><ruby>資料<rt>しりょう</rt></ruby></span>を調べました。昔の<span class=\"draggable-word\" data-word=\"研究者\"><ruby>研究者<rt>けんきゅうしゃ</rt></ruby></span>という<span class=\"draggable-word\" data-word=\"人物\"><ruby>人物<rt>じんぶつ</rt></ruby></span>の努力を知り、胸が熱くなりました。" },
+  { words: ["小学校", "小学生", "教科書", "漢字", "音読"], html: "<span class=\"draggable-word\" data-word=\"小学校\"><ruby>小学校<rt>しょうがっこう</rt></ruby></span>の四年生になった<span class=\"draggable-word\" data-word=\"小学生\"><ruby>小学生<rt>しょうがくせい</rt></ruby></span>のわたしは、新しい<span class=\"draggable-word\" data-word=\"教科書\"><ruby>教科書<rt>きょうかしょ</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"漢字\"><ruby>漢字<rt>かんじ</rt></ruby></span>をすらすらと<span class=\"draggable-word\" data-word=\"音読\"><ruby>音読<rt>おんどく</rt></ruby></span>できるようになりました。" },
+  { words: ["飛行機", "機体", "空中", "発進", "船長"], html: "大きな<span class=\"draggable-word\" data-word=\"飛行機\"><ruby>飛行機<rt>ひこうき</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"機体\"><ruby>機体<rt>きたい</rt></ruby></span>が滑走路を勢いよく<span class=\"draggable-word\" data-word=\"発進\"><ruby>発進<rt>はっしん</rt></ruby></span>し、<span class=\"draggable-word\" data-word=\"空中\"><ruby>空中<rt>くうちゅう</rt></ruby></span>へ高く舞い上がりました。いつか<span class=\"draggable-word\" data-word=\"船長\"><ruby>船長<rt>せんちょう</rt></ruby></span>やパイロットになってみたいです。" },
+  { words: ["日曜日", "野外", "活動", "自然", "森林"], html: "<span class=\"draggable-word\" data-word=\"日曜日\"><ruby>日曜日<rt>にちようび</rt></ruby></span>に、子ども会の<span class=\"draggable-word\" data-word=\"野外\"><ruby>野外<rt>やがい</rt></ruby></span><span class=\"draggable-word\" data-word=\"活動\"><ruby>活動<rt>かつどう</rt></ruby></span>に参加しました。豊かな<span class=\"draggable-word\" data-word=\"自然\"><ruby>自然<rt>しぜん</rt></ruby></span>が残る<span class=\"draggable-word\" data-word=\"森林\"><ruby>森林<rt>しんりん</rt></ruby></span>の中を歩いて、たくさんの発見をしました。" },
+  { words: ["魚市場", "早朝", "開店", "仕事", "売買"], html: "港の近くにある<span class=\"draggable-word\" data-word=\"魚市場\"><ruby>魚市場<rt>うおいちば</rt></ruby></span>は、<span class=\"draggable-word\" data-word=\"早朝\"><ruby>早朝<rt>そうちょう</rt></ruby></span>から<span class=\"draggable-word\" data-word=\"開店\"><ruby>開店<rt>かいてん</rt></ruby></span>してとてもにぎやかです。とれたての魚を<span class=\"draggable-word\" data-word=\"売買\"><ruby>売買<rt>ばいばい</rt></ruby></span>する人々の<span class=\"draggable-word\" data-word=\"仕事\"><ruby>仕事<rt>しごと</rt></ruby></span>は活気にあふれています。" },
+  { words: ["図工", "直線", "曲線", "三角形", "美術品"], html: "<span class=\"draggable-word\" data-word=\"図工\"><ruby>図工<rt>ずこう</rt></ruby></span>の時間に、定規を使った<span class=\"draggable-word\" data-word=\"直線\"><ruby>直線<rt>ちょくせん</rt></ruby></span>と自由な<span class=\"draggable-word\" data-word=\"曲線\"><ruby>曲線<rt>きょくせん</rt></ruby></span>を組み合わせて<span class=\"draggable-word\" data-word=\"三角形\"><ruby>三角形<rt>さんかくけい</rt></ruby></span>の模様を描きました。まるで<span class=\"draggable-word\" data-word=\"美術品\"><ruby>美術品<rt>びじゅつひん</rt></ruby></span>のようにきれいに仕上がりました。" },
+  { words: ["氷山", "水中", "部分", "全体", "図鑑"], html: "海の<span class=\"draggable-word\" data-word=\"図鑑\"><ruby>図鑑<rt>ずかん</rt></ruby></span>で<span class=\"draggable-word\" data-word=\"氷山\"><ruby>氷山<rt>ひょうざん</rt></ruby></span>の写真を見ました。海の上に見えている<span class=\"draggable-word\" data-word=\"部分\"><ruby>部分<rt>ぶぶん</rt></ruby></span>よりも、<span class=\"draggable-word\" data-word=\"水中\"><ruby>水中<rt>すいちゅう</rt></ruby></span>に隠れている<span class=\"draggable-word\" data-word=\"全体\"><ruby>全体<rt>ぜんたい</rt></ruby></span>の大きさのほうがずっと巨大だそうです。" },
+  { words: ["外国語", "外国", "会話", "方法", "体験"], html: "教室で<span class=\"draggable-word\" data-word=\"外国語\"><ruby>外国語<rt>がいこくご</rt></ruby></span>の授業がありました。<span class=\"draggable-word\" data-word=\"外国\"><ruby>外国<rt>がいこく</rt></ruby></span>から来た先生と英語で<span class=\"draggable-word\" data-word=\"会話\"><ruby>会話<rt>かいわ</rt></ruby></span>をする<span class=\"draggable-word\" data-word=\"方法\"><ruby>方法<rt>ほうほう</rt></ruby></span>を学び、楽しい<span class=\"draggable-word\" data-word=\"体験\"><ruby>体験<rt>たいけん</rt></ruby></span>ができました。" },
+  { words: ["発明", "具体的", "理由", "天才", "有名"], html: "エジソンという<span class=\"draggable-word\" data-word=\"有名\"><ruby>有名<rt>ゆうめい</rt></ruby></span>な<span class=\"draggable-word\" data-word=\"天才\"><ruby>天才<rt>てんさい</rt></ruby></span>の伝記を読みました。たくさんの<span class=\"draggable-word\" data-word=\"発明\"><ruby>発明<rt>はつめい</rt></ruby></span>ができた<span class=\"draggable-word\" data-word=\"理由\"><ruby>理由<rt>りゆう</rt></ruby></span>が、<span class=\"draggable-word\" data-word=\"具体的\"><ruby>具体的<rt>ぐたいてき</rt></ruby></span>にわかりやすく書かれていました。" },
+  { words: ["東西南北", "市区町村", "中心", "東京", "一番"], html: "<span class=\"draggable-word\" data-word=\"東西南北\"><ruby>東西南北<rt>とうざいなんぼく</rt></ruby></span>の向きを確かめながら、自分の住む<span class=\"draggable-word\" data-word=\"市区町村\"><ruby>市区町村<rt>しくちょうそん</rt></ruby></span>の地図を見ました。日本の<span class=\"draggable-word\" data-word=\"中心\"><ruby>中心<rt>ちゅうしん</rt></ruby></span>にある<span class=\"draggable-word\" data-word=\"東京\"><ruby>東京<rt>とうきょう</rt></ruby></span>は、人が<span class=\"draggable-word\" data-word=\"一番\"><ruby>一番<rt>いちばん</rt></ruby></span>多く集まる都市です。" },
+  { words: ["一年間", "春夏秋冬", "天気", "雨天", "日記"], html: "<span class=\"draggable-word\" data-word=\"一年間\"><ruby>一年間<rt>いちねんかん</rt></ruby></span>の<span class=\"draggable-word\" data-word=\"春夏秋冬\"><ruby>春夏秋冬<rt>しゅんかしゅうとう</rt></ruby></span>の移り変わりを観察しました。毎日の<span class=\"draggable-word\" data-word=\"天気\"><ruby>天気<rt>てんき</rt></ruby></span>や、<span class=\"draggable-word\" data-word=\"雨天\"><ruby>雨天<rt>うてん</rt></ruby></span>の日の生き物の様子も<span class=\"draggable-word\" data-word=\"日記\"><ruby>日記<rt>にっき</rt></ruby></span>に記録しました。" },
+  { words: ["動物園", "植物園", "休日", "新幹線", "自動車"], html: "<span class=\"draggable-word\" data-word=\"休日\"><ruby>休日<rt>きゅうじつ</rt></ruby></span>に<span class=\"draggable-word\" data-word=\"新幹線\"><ruby>新幹線<rt>しんかんせん</rt></ruby></span>に乗って遠くの街へ出かけました。駅から<span class=\"draggable-word\" data-word=\"自動車\"><ruby>自動車<rt>じどうしゃ</rt></ruby></span>に乗り換えて、<span class=\"draggable-word\" data-word=\"動物園\"><ruby>動物園<rt>どうぶつえん</rt></ruby></span>と<span class=\"draggable-word\" data-word=\"植物園\"><ruby>植物園<rt>しょくぶつえん</rt></ruby></span>の両方を見学しました。" }
+];
+
+// --- ボーナスステージ用データベース（4年生向け：慣用句・四字熟語・類義語・対義語） ---
+const IDIOM_PHRASE_DATABASE = [
+  { word: "頭をかかえる", match: "なやんでこまる" },
+  { word: "耳をすます", match: "注意して聞く" },
+  { word: "目をまるくする", match: "とてもおどろく" },
+  { word: "口をそろえる", match: "みんな同じことを言う" },
+  { word: "手をやく", match: "あつかいにくくてこまる" },
+  { word: "足がぼうになる", match: "歩きつかれてつっぱる" },
+  { word: "胸をなでおろす", match: "ほっとして安心する" },
+  { word: "腹をたてる", match: "おこる" },
+  { word: "顔がひろい", match: "知り合いがたくさんいる" },
+  { word: "首を長くする", match: "今か今かと待ちわびる" },
+  { word: "肩をならべる", match: "同じくらいの力になる" },
+  { word: "鼻が高い", match: "じまんしたい気持ちだ" }
+];
+
+const YOJI_JUKUGO_DATABASE = [
+  { word: "一石二鳥", match: "一つのことで二つの利益" },
+  { word: "十人十色", match: "人それぞれ考えが違うこと" },
+  { word: "以心伝心", match: "言わなくても心が通じること" },
+  { word: "四面楚歌", match: "まわりに味方がいないこと" },
+  { word: "起死回生", match: "ピンチから一気に立ち直る" },
+  { word: "自画自賛", match: "自分で自分をほめること" },
+  { word: "温故知新", match: "昔を学び新しい知恵を得る" },
+  { word: "一期一会", match: "一生に一度の大切な出会い" },
+  { word: "晴耕雨読", match: "自然の中で自由に暮らすこと" },
+  { word: "電光石火", match: "動きがものすごく速いこと" },
+  { word: "百発百中", match: "ねらったものがすべて当たる" },
+  { word: "油断大敵", match: "気をゆるめるのは危険だ" }
+];
+
+const SYNONYM_DATABASE = [
+  { word: "予想", match: "見当" },
+  { word: "変化", match: "移り変わり" },
+  { word: "協力", match: "助け合い" },
+  { word: "努力", match: "がんばり" },
+  { word: "観察", match: "じっくり見る" },
+  { word: "伝統", match: "受け継ぎ" },
+  { word: "保護", match: "大切に見守る" },
+  { word: "解決", match: "問題を治める" },
+  { word: "整理", match: "整える" },
+  { word: "参加", match: "仲間に入る" },
+  { word: "特色", match: "特徴" },
+  { word: "結果", match: "結びつき" }
+];
+
+const ANTONYM_DATABASE = [
+  { word: "輸出", match: "輸入" }, { word: "生産", match: "消費" },
+  { word: "平行", match: "垂直" }, { word: "原因", match: "結果" },
+  { word: "共通", match: "違い" }, { word: "安全", match: "危険" },
+  { word: "開店", match: "閉店" }, { word: "開会", match: "閉会" },
+  { word: "午前", match: "午後" }, { word: "男子", match: "女子" },
+  { word: "上手", match: "下手" }, { word: "過去", match: "未来" },
+  { word: "部分", match: "全体" }, { word: "直線", match: "曲線" },
+  { word: "幸福", match: "不幸" }, { word: "質問", match: "回答" },
+  { word: "成功", match: "失敗" }, { word: "出発", match: "到着" },
+  { word: "集合", match: "解散" }, { word: "賛成", match: "反対" }
+];
+
+// --- グローバル状態 ---
+let currentPosition = 0; // 0 〜 50
+let currentStage = 1;
+let currentSubStage = 1; // 1, 2, 3
+let totalPoints = 0;
+let stageWordPoints = 0;
+let subStagePoints = 0;
+let isPatternB = false;
+let timer = 90;
+let timerInterval = null;
+let soundEnabled = true;
+let isRubyHidden = true;
+
+let availableCompositions = [];
+let availablePhraseList = [];
+let availableYojiList = [];
+let availableSynonymList = [];
+let availableAntonymList = [];
+let bonusRoundCount = 0;
+let currentIdioms = [];
+let usedHintsInSubStage = [false, false, false, false, false];
+let audioCtx = null;
+
+let draggedWordElem = null;
+let touchClone = null;
+let touchStartX = 0, touchStartY = 0;
+
+function getNextComposition() {
+  if (availableCompositions.length === 0) {
+    availableCompositions = [...PRESET_COMPOSITIONS].sort(() => Math.random() - 0.5);
+  }
+  return availableCompositions.pop();
+}
+
+// --- トラック (すごろく) 初期化 ---
+function initTrack() {
+  const container = document.getElementById('game-container');
+  const trackContainer = document.getElementById('track-container');
+  trackContainer.innerHTML = '';
+  
+  const rect = container.getBoundingClientRect();
+  const containerW = rect.width || 1200;
+  const containerH = rect.height || 675;
+  const marginX = 26, marginY = 26;
+  const trackW = containerW - marginX * 2, trackH = containerH - marginY * 2;
+  const totalPerimeter = 2 * (trackW + trackH);
+  const totalTiles = 51;
+  const step = totalPerimeter / totalTiles;
+  const xStart = trackW * 0.52;
+
+  for (let i = 0; i < totalTiles; i++) {
+    const dist = i * step;
+    let x, y;
+    if (dist <= trackW - xStart) { x = xStart + dist; y = trackH; }
+    else if (dist <= (trackW - xStart) + trackH) { x = trackW; y = trackH - (dist - (trackW - xStart)); }
+    else if (dist <= (trackW - xStart) + trackH + trackW) { x = trackW - (dist - ((trackW - xStart) + trackH)); y = 0; }
+    else if (dist <= (trackW - xStart) + 2 * trackH + trackW) { x = 0; y = dist - ((trackW - xStart) + trackH + trackW); }
+    else { x = dist - ((trackW - xStart) + 2 * trackH + trackW); y = trackH; }
+
+    const pctX = ((x + marginX) / containerW) * 100;
+    const pctY = ((y + marginY) / containerH) * 100;
+
+    const tile = document.createElement('div');
+    tile.className = 'track-tile';
+    tile.id = `tile-${i}`;
+    tile.style.left = `${pctX}%`; tile.style.top = `${pctY}%`;
+    if (i === 0) { tile.classList.add('start-tile'); tile.innerText = 'START'; }
+    else if (i === 50) { tile.classList.add('goal-tile'); tile.innerText = 'GOAL'; }
+    else { tile.innerText = i; }
+    
+    trackContainer.appendChild(tile);
+  }
+  updateTrackUI();
+}
+
+function updateTrackUI() {
+  for (let i = 0; i < 51; i++) {
+    const tile = document.getElementById(`tile-${i}`);
+    if (!tile) continue;
+    tile.classList.remove('active-red', 'active-orange');
+    
+    let isRed = i < currentPosition || (i === 50 && currentPosition >= 50);
+    let isOrange = (i === currentPosition && i > 0 && i < 50);
+
+    if (isRed) { tile.classList.add('active-red'); } 
+    else if (isOrange) { tile.classList.add('active-orange'); }
+  }
+}
+
+// --- ゲームフロー ---
+function startStage() {
+  stageWordPoints = 0;
+  currentSubStage = 1;
+  startSubStage();
+}
+
+function startSubStage() {
+  clearInterval(timerInterval);
+  timer = 90;
+  subStagePoints = 0;
+  isPatternB = (currentStage % 2 === 0);
+  usedHintsInSubStage = [false, false, false, false, false];
+  document.getElementById('timer-display').innerText = `⏱ ${timer}`;
+  document.getElementById('stage-display').innerText = `🚩 STAGE ${currentStage} (${currentSubStage}/3)`;
+
+  const compData = getNextComposition();
+  currentIdioms = compData.words.map(w => IDIOM_DATABASE.find(item => item.word === w)).filter(Boolean);
+  
+  // 順序をランダムに
+  currentIdioms.sort(() => Math.random() - 0.5);
+  
+  document.getElementById('comp-title-text').innerText = isPatternB ? "▼ 右の熟語を空らんに当てはめよう ▼" : "▼ 作文にかくれた熟語を見つけて右にスワイプ！ ▼";
+
+  renderProblemRows();
+  
+  const compArea = document.getElementById('composition-area');
+  
+  const loadContent = () => {
+    let htmlStr = compData.html;
+    if (isPatternB) {
+      htmlStr = htmlStr.replace(/<span class="draggable-word" data-word="([^"]+)">(.*?)<\/span>/g, '<span class="inline-drop-slot drop-slot" data-word="$1"></span>');
+    }
+    htmlStr = htmlStr.replace(/、/g, '、').replace(/。/g, '。');
+    
+    compArea.innerHTML = htmlStr;
+    
+    if (isRubyHidden) compArea.classList.add('hide-ruby');
+    else compArea.classList.remove('hide-ruby');
+    
+    if (isPatternB) {
+      compArea.querySelectorAll('.drop-slot').forEach(slot => {
+        slot.ondragover = e => { e.preventDefault(); slot.classList.add('drag-over'); };
+        slot.ondragleave = e => { slot.classList.remove('drag-over'); };
+        slot.ondrop = e => handleDrop(e, slot);
+      });
+    } else {
+      // ステージAは最初すべての熟語を隠す（かくれんぼ状態）
+      compArea.querySelectorAll('.draggable-word').forEach(w => {
+        w.classList.add('hidden-idiom');
+      });
+    }
+
+    setupDraggables();
+    
+    timerInterval = setInterval(() => {
+      timer--;
+      document.getElementById('timer-display').innerText = `⏱ ${timer}`;
+      if (timer <= 0) handleTimeUp();
+    }, 1000);
+  };
+
+  if (currentSubStage === 1) {
+    triggerStageZoomIn(`STAGE ${currentStage}`, loadContent);
+  } else {
+    loadContent();
+  }
+}
+
+function renderProblemRows() {
+  const list = document.getElementById('idiom-list');
+  list.innerHTML = '';
+  currentIdioms.forEach((item, rowIndex) => {
+    const row = document.createElement('div');
+    row.className = 'idiom-row';
+    row.id = `idiom-row-${rowIndex}`;
+
+    const meaning = document.createElement('div');
+    meaning.className = 'meaning-text';
+    meaning.innerText = item.meaning;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'slot-wrapper';
+
+    if (isPatternB) {
+      const wordElem = document.createElement('div');
+      wordElem.className = 'draggable-word';
+      wordElem.dataset.word = item.word;
+      wordElem.innerText = item.word;
+      wrapper.appendChild(wordElem);
+    } else {
+      const slot = document.createElement('div');
+      slot.className = 'drop-slot';
+      slot.dataset.word = item.word;
+      slot.dataset.rowIndex = rowIndex;
+      
+      slot.ondragover = e => { e.preventDefault(); slot.classList.add('drag-over'); };
+      slot.ondragleave = e => { slot.classList.remove('drag-over'); };
+      slot.ondrop = e => handleDrop(e, slot);
+      
+      wrapper.appendChild(slot);
+    }
+
+    const hintBtn = document.createElement('button');
+    hintBtn.className = 'hint-btn';
+    hintBtn.innerText = 'ヒント';
+    hintBtn.onclick = () => showHint(rowIndex, hintBtn, item.word);
+
+    row.appendChild(meaning);
+    row.appendChild(wrapper);
+    row.appendChild(hintBtn);
+    list.appendChild(row);
+  });
+}
+
+function showHint(rowIndex, btn, word) {
+  if (usedHintsInSubStage[rowIndex]) return;
+  usedHintsInSubStage[rowIndex] = true;
+  btn.classList.add('used');
+  btn.innerText = '使用済';
+  
+  let slot;
+  if (isPatternB) {
+    slot = document.querySelector(`.inline-drop-slot[data-word="${word}"]`);
+  } else {
+    slot = document.querySelector(`.drop-slot[data-word="${word}"]`);
+  }
+  
+  if (slot && !slot.classList.contains('filled')) {
+    if (isPatternB) {
+      slot.innerText = word[0];
+      slot.style.color = '#a8a29e';
+    } else {
+      const restSpaces = '\u3000'.repeat(Math.max(1, word.length - 1));
+      slot.innerHTML = `<span style="color: #a8a29e;">${word[0]}</span><span style="color: transparent;">${restSpaces}</span>`;
+    }
+  }
+  playSE('click');
+}
+
+// --- D&D 実装 ---
+function setupDraggables() {
+  const words = document.querySelectorAll('.draggable-word');
+  words.forEach(w => {
+    const revealWord = () => {
+      if (w.classList.contains('hidden-idiom')) {
+        w.classList.remove('hidden-idiom');
+        playSE('click');
+      }
+    };
+
+    // クリック（タップ）で発見して枠を表示
+    w.addEventListener('click', () => {
+      revealWord();
+    });
+
+    // マウスで掴んだ瞬間にも発見して枠を表示
+    w.addEventListener('mousedown', () => {
+      revealWord();
+    });
+
+    w.draggable = true;
+    w.ondragstart = (e) => {
+      revealWord();
+      draggedWordElem = w;
+      e.dataTransfer.setData('text/plain', w.dataset.word);
+      playSE('click');
+    };
+    w.ondragend = () => { draggedWordElem = null; };
+
+    // Touch
+    w.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 1) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 隠れていた場合はタップした瞬間に枠を表示！
+      revealWord();
+      
+      // 既存のクローンが残っていれば安全に掃除する
+      if (touchClone) {
+        touchClone.remove();
+        touchClone = null;
+      }
+      if (draggedWordElem) {
+        draggedWordElem.style.opacity = '1';
+      }
+
+      draggedWordElem = w;
+      playSE('click');
+      const touch = e.touches[0];
+      const rect = w.getBoundingClientRect();
+      
+      touchClone = w.cloneNode(true);
+      touchClone.className = 'touch-drag-clone';
+      touchClone.style.left = `${rect.left}px`;
+      touchClone.style.top = `${rect.top}px`;
+      document.body.appendChild(touchClone);
+      
+      touchStartX = touch.clientX - rect.left;
+      touchStartY = touch.clientY - rect.top;
+      w.style.opacity = '0.3';
+    }, {passive: false});
+
+    w.addEventListener('touchmove', (e) => {
+      if (!touchClone) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const touch = e.touches[0];
+      touchClone.style.left = `${touch.clientX - touchStartX}px`;
+      touchClone.style.top = `${touch.clientY - touchStartY}px`;
+      
+      document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('drag-over'));
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const slot = el ? el.closest('.drop-slot') : null;
+      if (slot && !slot.classList.contains('filled')) slot.classList.add('drag-over');
+    }, {passive: false});
+
+    const resetTouchDrag = () => {
+      document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('drag-over'));
+      if (draggedWordElem) draggedWordElem.style.opacity = '1';
+      if (touchClone) touchClone.remove();
+      draggedWordElem = null;
+      touchClone = null;
+    };
+
+    w.addEventListener('touchend', (e) => {
+      if (!touchClone) return;
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('drag-over'));
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const slot = el ? el.closest('.drop-slot') : null;
+      
+      if (slot && !slot.classList.contains('filled') && draggedWordElem) {
+        const currentDragElem = draggedWordElem;
+        const currentClone = touchClone;
+        draggedWordElem = null;
+        touchClone = null;
+        processDrop(currentDragElem.dataset.word, slot, currentDragElem, currentClone);
+      } else {
+        resetTouchDrag();
+      }
+    });
+
+    w.addEventListener('touchcancel', () => {
+      resetTouchDrag();
+    });
+  });
+}
+
+function handleDrop(e, slot) {
+  e.preventDefault();
+  slot.classList.remove('drag-over');
+  if (slot.classList.contains('filled')) return;
+  const word = e.dataTransfer.getData('text/plain');
+  processDrop(word, slot, draggedWordElem, null);
+}
+
+function processDrop(word, slot, sourceElem, cloneElem) {
+  if (word === slot.dataset.word) {
+    // 正解
+    playSE('correct');
+    slot.classList.add('filled');
+    
+    if (isPatternB) {
+      const idiom = currentIdioms.find(i => i.word === word);
+      if (idiom) {
+        slot.innerHTML = `<ruby>${idiom.word}<rt>${isRubyHidden ? '' : idiom.reading}</rt></ruby>`;
+        if(isRubyHidden) slot.classList.add('hide-ruby');
+      }
+    } else {
+      slot.innerText = word;
+    }
+    
+    slot.style.color = '#15803d';
+    
+    if (sourceElem) sourceElem.classList.add('dragged-out');
+    if (cloneElem) cloneElem.remove();
+    
+    const rIndex = currentIdioms.findIndex(i => i.word === word);
+    if (rIndex !== -1) {
+      document.getElementById(`idiom-row-${rIndex}`).classList.add('completed');
+      const pts = usedHintsInSubStage[rIndex] ? 1 : 2;
+      subStagePoints += pts;
+    }
+    
+    checkAllCompleted();
+  } else {
+    // 不正解
+    playSE('wrong');
+    if (cloneElem) {
+      cloneElem.classList.add('shake-animation');
+      setTimeout(() => {
+        if(sourceElem) sourceElem.style.opacity = '1';
+        cloneElem.remove();
+      }, 400);
+    } else if (sourceElem) {
+      sourceElem.classList.add('shake-animation');
+      setTimeout(() => sourceElem.classList.remove('shake-animation'), 400);
+    }
+  }
+}
+
+async function checkAllCompleted() {
+  const slots = document.querySelectorAll('.drop-slot');
+  const allFilled = Array.from(slots).every(s => s.classList.contains('filled'));
+  
+  if (allFilled) {
+    clearInterval(timerInterval);
+    
+    const timePts = Math.max(0, timer);
+    const earnedPts = subStagePoints + timePts;
+    
+    playSE('milestone');
+    triggerConfetti();
+
+    // 正解した作文と解答をじっくり見られるように2秒待機
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // 1. 先に外周のすごろくを進める
+    if (subStagePoints > 0) {
+      await advancePosition(subStagePoints);
+      // すごろくが完全に止まったのを確認してから少し待ってウィンドウを出す
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    // 2. 緑のクリアウィンドウを出す
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="stage-clear-banner">
+        <h2 style="color: #fde047; font-size: 28px; margin-bottom: 12px;">💮 ${currentSubStage}問目 クリア！</h2>
+        <p style="font-size: 18px;">熟語正解: <strong>＋${subStagePoints} pt</strong></p>
+        <p style="font-size: 18px;">タイムボーナス: <strong>＋${timePts} pt</strong></p>
+        <hr style="margin: 12px 0; border-color: rgba(255,255,255,0.3);">
+        <h3 style="font-size: 24px;">合計 <strong>＋${earnedPts} pt</strong></h3>
+      </div>
+    `;
+    document.getElementById('game-container').appendChild(modal);
+
+    await new Promise(r => setTimeout(r, 2200));
+    modal.remove();
+
+    // 3. 最後にポイントを入れるアニメーションを実行し、完了後に次の問題へ進む
+    const targetPoints = totalPoints + earnedPts;
+    rollUpPoints(targetPoints, () => {
+      setTimeout(() => {
+        if (currentSubStage < 3) {
+          playSE('click');
+          currentSubStage++;
+          startSubStage();
+        } else {
+          startBonusStage();
+        }
+      }, 400);
+    });
+  }
+}
+
+// --- ボーナス特別ステージ（4年生向け：慣用句・四字熟語・類義語・対義語） ---
+function startBonusStage() {
+  bonusRoundCount++;
+  const mode = bonusRoundCount % 4; // 1:慣用句, 2:四字熟語, 3:類義語, 0:対義語
+
+  let sourceList, titleText, descText;
+  if (mode === 1) {
+    if (availablePhraseList.length < 4) {
+      availablePhraseList = [...IDIOM_PHRASE_DATABASE].sort(() => Math.random() - 0.5);
+    }
+    sourceList = availablePhraseList;
+    titleText = "⭐ ボーナス: 慣用句あわせ ⭐";
+    descText = "慣用句と、その正しい意味をペアにしよう！";
+  } else if (mode === 2) {
+    if (availableYojiList.length < 4) {
+      availableYojiList = [...YOJI_JUKUGO_DATABASE].sort(() => Math.random() - 0.5);
+    }
+    sourceList = availableYojiList;
+    titleText = "⭐ ボーナス: 四字熟語あわせ ⭐";
+    descText = "四字熟語と、その意味をペアにしよう！";
+  } else if (mode === 3) {
+    if (availableSynonymList.length < 4) {
+      availableSynonymList = [...SYNONYM_DATABASE].sort(() => Math.random() - 0.5);
+    }
+    sourceList = availableSynonymList;
+    titleText = "⭐ ボーナス: 類義語あわせ ⭐";
+    descText = "意味が似ている言葉（類義語）どうしをペアにしよう！";
+  } else {
+    if (availableAntonymList.length < 4) {
+      availableAntonymList = [...ANTONYM_DATABASE].sort(() => Math.random() - 0.5);
+    }
+    sourceList = availableAntonymList;
+    titleText = "⭐ ボーナス: 対義語あわせ ⭐";
+    descText = "反対の意味になる言葉（対義語）どうしをペアにしよう！";
+  }
+
+  const pairs = [];
+  const usedWords = new Set();
+  const usedMatches = new Set();
+  
+  while (pairs.length < 4 && sourceList.length > 0) {
+    const item = sourceList.pop();
+    if (!usedWords.has(item.word) && !usedMatches.has(item.match) && !usedWords.has(item.match) && !usedMatches.has(item.word)) {
+      pairs.push(item);
+      usedWords.add(item.word);
+      usedMatches.add(item.match);
+    }
+  }
+
+  let words = [], matches = [];
+  pairs.forEach(p => { words.push(p.word); matches.push({text: p.match, id: p.word}); });
+  
+  words.sort(() => Math.random() - 0.5);
+  matches.sort(() => Math.random() - 0.5);
+  
+  let selectedWord = null;
+  let onoFound = 0;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="special-stage-container">
+      <div class="special-header">
+        <div class="special-title">${titleText}</div>
+        <div class="special-timer" id="ono-timer">⏱ 20</div>
+      </div>
+      <div style="color:#bfdbfe; font-size:14px;">${descText}</div>
+      <div class="special-grid" id="ono-grid1"></div>
+      <div class="special-grid" id="ono-grid2"></div>
+    </div>
+  `;
+  document.getElementById('game-container').appendChild(modal);
+  
+  const g1 = modal.querySelector('#ono-grid1'), g2 = modal.querySelector('#ono-grid2');
+  
+  words.forEach(w => {
+    const btn = document.createElement('div'); btn.className = 'ono-card'; btn.innerText = w;
+    btn.onclick = () => {
+      if(btn.classList.contains('matched')) return;
+      document.querySelectorAll('#ono-grid1 .ono-card').forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected'); selectedWord = w; playSE('click');
+    };
+    g1.appendChild(btn);
+  });
+  
+  matches.forEach(m => {
+    const btn = document.createElement('div'); btn.className = 'ono-card'; btn.innerText = m.text;
+    btn.onclick = () => {
+      if(btn.classList.contains('matched') || !selectedWord) return;
+      if (selectedWord === m.id) {
+        const colorClass = `matched-${onoFound % 4}`;
+        btn.classList.add('matched', colorClass);
+        const wBtn = Array.from(g1.children).find(c => c.innerText === selectedWord);
+        if(wBtn) wBtn.classList.add('matched', colorClass);
+        playSE('correct'); selectedWord = null; onoFound++;
+        if (onoFound >= 4) endBonusStage(true, modal);
+      } else {
+        btn.classList.add('error'); playSE('wrong');
+        setTimeout(() => btn.classList.remove('error'), 300);
+      }
+    };
+    g2.appendChild(btn);
+  });
+
+  playSE('fanfare');
+  let oTime = 20;
+  const oInt = setInterval(() => {
+    oTime--; modal.querySelector('#ono-timer').innerText = `⏱ ${oTime}`;
+    if(oTime <= 0) { clearInterval(oInt); endBonusStage(false, modal); }
+  }, 1000);
+
+  function endBonusStage(success, mNode) {
+    clearInterval(oInt);
+    playSE('milestone');
+    if (success) triggerConfetti();
+    const p = success ? 30 : onoFound * 5;
+    const n = totalPoints + p;
+    
+    // ペアが完成した状態を2秒間見せてからクリア表示へ
+    setTimeout(() => {
+      mNode.innerHTML = `
+        <div class="stage-clear-banner">
+          <h2>${success ? '🎊 コンプリート！' : '⏱ しゅうりょう！'}</h2>
+          <p>ボーナス <strong>＋${p}pt</strong></p>
+        </div>
+      `;
+      setTimeout(() => {
+        mNode.remove();
+        rollUpPoints(n, () => {
+          currentStage++;
+          startStage();
+        });
+      }, 2000);
+    }, 2000);
+  }
+}
+
+// --- 共通UI・ユーティリティ ---
+async function advancePosition(count) {
+  const stepDelay = count > 15 ? 30 : (count > 5 ? 80 : 250);
+  
+  for (let step = 0; step < count; step++) {
+    if (currentPosition >= 50) {
+      await new Promise(resolve => triggerGoal(resolve));
+    }
+    
+    const pT = document.getElementById(`tile-${currentPosition}`);
+    if (pT && currentPosition > 0) { pT.classList.remove('active-orange'); pT.classList.add('active-red'); }
+    currentPosition++;
+    const cT = document.getElementById(`tile-${currentPosition}`);
+    if (cT) {
+      if (currentPosition < 50) cT.classList.add('active-orange'); else cT.classList.add('active-red');
+      cT.classList.remove('tile-pop'); void cT.offsetWidth; cT.classList.add('tile-pop');
+    }
+    playSE('click');
+    await new Promise(r => setTimeout(r, stepDelay));
+  }
+  updateTrackUI();
+  
+  if (currentPosition >= 50) {
+    await new Promise(resolve => triggerGoal(resolve));
+  }
+}
+
+function triggerGoal(onComplete) {
+  playSE('goal');
+  let c = 0, i = 0;
+  const int = setInterval(() => {
+    document.querySelectorAll('.track-tile').forEach(t => t.classList.remove('active-orbit'));
+    for (let offset = 0; offset < 3; offset++) {
+      const idx = (i - offset + 51) % 51;
+      const t = document.getElementById(`tile-${idx}`);
+      if (t) t.classList.add('active-orbit');
+    }
+    if (i % 2 === 0) playSE('orbit');
+    i++; 
+    if (i >= 51) { i = 0; c++; }
+    if (c >= 2) {
+      clearInterval(int);
+      document.querySelectorAll('.track-tile').forEach(t => t.classList.remove('active-orbit'));
+      triggerConfetti();
+      
+      const modal = document.createElement('div'); 
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `<div class="stage-clear-banner"><h2 style="color:#fde047;font-size:32px;">🏆 完走ボーナス！</h2><p style="font-size:24px;">＋100 pt</p></div>`;
+      document.getElementById('game-container').appendChild(modal);
+      
+      setTimeout(() => {
+        rollUpPoints(totalPoints + 100, () => {
+          modal.innerHTML = `
+            <div class="start-hero-card" style="padding:20px;">
+              <h2>🏆 50マス達成！</h2><p>現在: ${totalPoints}pt</p>
+              <button class="start-play-btn" id="goal-continue-btn" style="margin-top:10px;">つづける</button>
+            </div>`;
+          document.getElementById('goal-continue-btn').onclick = () => {
+             modal.remove();
+             currentPosition = 0;
+             updateTrackUI();
+             if (onComplete) onComplete();
+          };
+        });
+      }, 1800);
+    }
+  }, 32);
+}
+
+function rollUpPoints(target, onComp) {
+  const d = document.getElementById('points-display'); d.classList.add('rolling');
+  let c = totalPoints, diff = target - totalPoints;
+  totalPoints = target;
+  
+  if(diff<=0) { d.innerText=`⭐ ${target} pt`; d.classList.remove('rolling'); if(onComp) onComp(); return; }
+  const s = Math.min(30, diff), inc = diff/s; let step=0;
+  const int = setInterval(() => {
+    step++; c+=inc; d.innerText=`⭐ ${Math.round(c)} pt`; playSE('rollup');
+    if(step>=s) { clearInterval(int); d.innerText=`⭐ ${target} pt`; d.classList.remove('rolling'); if(onComp) onComp(); }
+  }, 35);
+}
+
+function handleTimeUp() {
+  clearInterval(timerInterval); playSE('wrong');
+  const m = document.createElement('div'); m.className = 'modal-overlay';
+  m.innerHTML = `<div class="start-hero-card"><h2>⏰ タイムアップ</h2><button class="start-play-btn" onclick="this.closest('.modal-overlay').remove(); startStage();">やりなおす</button></div>`;
+  document.getElementById('game-container').appendChild(m);
+}
+
+function triggerStageZoomIn(text, onComp) {
+  const o = document.getElementById('stage-zoom-overlay'), t = document.getElementById('stage-zoom-text');
+  t.innerText = text; t.classList.remove('animate'); o.classList.add('show'); playSE('zoomIn');
+  setTimeout(() => t.classList.add('animate'), 20);
+  setTimeout(() => { o.classList.remove('show'); t.classList.remove('animate'); if(onComp) onComp(); }, 1000);
+}
+
+function toggleRuby() {
+  isRubyHidden = !isRubyHidden;
+  const btn = document.getElementById('ruby-btn');
+  btn.innerText = isRubyHidden ? 'ふりがな: OFF' : 'ふりがな: ON';
+  const area = document.getElementById('composition-area');
+  if(isRubyHidden) area.classList.add('hide-ruby'); else area.classList.remove('hide-ruby');
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  document.getElementById('sound-btn').innerText = soundEnabled ? '🔊 ON' : '🔇 OFF';
+}
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playSE(type) {
+  if (!soundEnabled || !audioCtx) return;
+  const n = audioCtx.currentTime;
+  try {
+    if (type === 'click') {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.setValueAtTime(600, n); o.frequency.exponentialRampToValueAtTime(800, n+0.05);
+      g.gain.setValueAtTime(0.1, n); g.gain.exponentialRampToValueAtTime(0.01, n+0.05);
+      o.connect(g); g.connect(audioCtx.destination); o.start(n); o.stop(n+0.05);
+    } else if (type === 'correct') {
+      [523.25, 659.25, 783.99].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type='triangle';
+        o.frequency.setValueAtTime(f, n+i*0.08); g.gain.setValueAtTime(0.15, n+i*0.08); g.gain.exponentialRampToValueAtTime(0.01, n+i*0.08+0.2);
+        o.connect(g); g.connect(audioCtx.destination); o.start(n+i*0.08); o.stop(n+i*0.08+0.2);
+      });
+    } else if (type === 'wrong') {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type='sawtooth';
+      o.frequency.setValueAtTime(150, n); o.frequency.linearRampToValueAtTime(100, n+0.2);
+      g.gain.setValueAtTime(0.2, n); g.gain.exponentialRampToValueAtTime(0.01, n+0.2);
+      o.connect(g); g.connect(audioCtx.destination); o.start(n); o.stop(n+0.2);
+    } else if (type === 'zoomIn' || type === 'rollup' || type === 'orbit') {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.setValueAtTime(400+Math.random()*400, n); g.gain.setValueAtTime(0.05, n); g.gain.exponentialRampToValueAtTime(0.005, n+0.05);
+      o.connect(g); g.connect(audioCtx.destination); o.start(n); o.stop(n+0.05);
+    } else if (type === 'milestone' || type === 'fanfare' || type === 'goal') {
+      [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.frequency.setValueAtTime(f, n+i*0.1); g.gain.setValueAtTime(0.2, n+i*0.1); g.gain.exponentialRampToValueAtTime(0.01, n+i*0.1+0.4);
+        o.connect(g); g.connect(audioCtx.destination); o.start(n+i*0.1); o.stop(n+i*0.1+0.4);
+      });
+    }
+  } catch(e){}
+}
+
+function triggerConfetti() {
+  const canvas = document.getElementById('confetti-canvas'); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.parentElement.clientWidth; canvas.height = canvas.parentElement.clientHeight;
+  const particles = [], colors = ['#ef4444', '#f87171', '#fca5a5', '#f59e0b', '#fcd34d'];
+  for (let i = 0; i < 70; i++) {
+    particles.push({
+      x: canvas.width/2, y: canvas.height/2, vx: (Math.random()-0.5)*14, vy: (Math.random()-0.7)*14,
+      color: colors[Math.floor(Math.random()*colors.length)], size: Math.random()*8+4, rotation: Math.random()*360, rSpeed: (Math.random()-0.5)*10
+    });
+  }
+  let duration = 0;
+  function animate() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.rotation += p.rSpeed;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate((p.rotation*Math.PI)/180);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size); ctx.restore();
+    });
+    duration++; if (duration < 90) requestAnimationFrame(animate); else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  animate();
+}
+
+window.addEventListener('load', () => {
+  initTrack();
+  const m = document.createElement('div');
+  m.className = 'modal-overlay';
+  m.innerHTML = `
+    <div class="start-hero-card">
+      <h1 class="start-hero-title" style="line-height: 1.3;">熟語かくれんぼ<br><span style="font-size: 0.75em;">４年</span></h1>
+      <p style="color: #fca5a5; font-size: 16px; margin-bottom: 24px; line-height: 1.6;">
+        作文の中から、いみに合う熟語を見つけよう！
+      </p>
+      <button class="start-play-btn" onclick="initAudio(); this.closest('.modal-overlay').remove(); startStage();">GAME START</button>
+    </div>
+  `;
+  document.getElementById('game-container').appendChild(m);
+});
+window.addEventListener('resize', initTrack);
+</script>
+</body>
+</html>
