@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>熟語かくれんぼ ４年</title>
- <meta property="og:title" content="熟語かくれんぼ ４年">
-    <meta property="og:description" content="【４年国語】作文の中から熟語を見つけるゲームです。">
-    <meta property="og:type" content="website">
 <style>
   * { 
     box-sizing: border-box; 
@@ -455,17 +452,51 @@
     background: linear-gradient(135deg, #2a0a0a, #450a0a);
     border: 2px solid #ef4444;
     color: #ffffff;
-    padding: 32px;
+    padding: 24px 28px;
     border-radius: 24px;
     text-align: center;
     box-shadow: 0 20px 50px rgba(220, 38, 38, 0.4), inset 0 0 20px rgba(239, 68, 68, 0.2);
-    max-width: 480px; width: 90%;
+    max-width: 490px; width: 92%;
+    position: relative;
+    overflow: hidden;
+  }
+  .puzzle-piece-container {
+    width: 82px;
+    height: 82px;
+    margin: 0 auto 6px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.9));
+    animation: pieceFloat 3s ease-in-out infinite alternate;
+  }
+  @keyframes pieceFloat {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-7px) rotate(5deg); }
+  }
+  .start-hero-badge {
+    display: inline-block;
+    padding: 3px 14px;
+    background: rgba(239, 68, 68, 0.22);
+    border: 1px solid #f87171;
+    border-radius: 20px;
+    color: #fecaca;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
   }
   .start-hero-title {
     font-size: clamp(32px, 5vw, 44px);
     font-weight: 900; letter-spacing: 2px;
     color: #fca5a5; text-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
     margin-bottom: 12px;
+  }
+  .start-hero-desc {
+    color: #ffffff;
+    font-size: 16px;
+    margin-bottom: 24px;
+    line-height: 1.6;
   }
   .start-play-btn {
     background: linear-gradient(135deg, #ef4444, #b91c1c);
@@ -1128,6 +1159,7 @@ let bonusRoundCount = 0;
 let currentIdioms = [];
 let usedHintsInSubStage = [false, false, false, false, false];
 let audioCtx = null;
+let trackAdvanceQueue = Promise.resolve();
 
 let draggedWordElem = null;
 let touchClone = null;
@@ -1476,10 +1508,15 @@ function processDrop(word, slot, sourceElem, cloneElem) {
     if (cloneElem) cloneElem.remove();
     
     const rIndex = currentIdioms.findIndex(i => i.word === word);
+    let earnedRowPts = 0;
     if (rIndex !== -1) {
       document.getElementById(`idiom-row-${rIndex}`).classList.add('completed');
-      const pts = usedHintsInSubStage[rIndex] ? 1 : 2;
-      subStagePoints += pts;
+      earnedRowPts = usedHintsInSubStage[rIndex] ? 1 : 2;
+      subStagePoints += earnedRowPts;
+    }
+
+    if (earnedRowPts > 0) {
+      trackAdvanceQueue = trackAdvanceQueue.then(() => advancePosition(earnedRowPts));
     }
     
     checkAllCompleted();
@@ -1516,11 +1553,11 @@ async function checkAllCompleted() {
     await new Promise(r => setTimeout(r, 2000));
     
     // 1. 先に外周のすごろくを進める
-    if (subStagePoints > 0) {
-      await advancePosition(subStagePoints);
-      // すごろくが完全に止まったのを確認してから少し待ってウィンドウを出す
-      await new Promise(r => setTimeout(r, 600));
-    }
+    // 正解した作文と解答をじっくり見られるように2秒待機（同時に1問ごとのすごろく移動完了も待つ）
+    await Promise.all([
+      new Promise(r => setTimeout(r, 2000)),
+      trackAdvanceQueue
+    ]);
 
     // 2. 緑のクリアウィンドウを出す
     const modal = document.createElement('div');
@@ -1694,7 +1731,7 @@ function startBonusStage() {
 
 // --- 共通UI・ユーティリティ ---
 async function advancePosition(count) {
-  const stepDelay = count > 15 ? 30 : (count > 5 ? 80 : 250);
+  const stepDelay = 380;
   
   for (let step = 0; step < count; step++) {
     if (currentPosition >= 50) {
@@ -1870,9 +1907,43 @@ window.addEventListener('load', () => {
   m.className = 'modal-overlay';
   m.innerHTML = `
     <div class="start-hero-card">
+      <div class="puzzle-piece-container">
+        <svg viewBox="0 0 120 120" width="82" height="82">
+          <defs>
+            <linearGradient id="puzzleGradRed" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fecaca" />
+              <stop offset="45%" stop-color="#ef4444" />
+              <stop offset="100%" stop-color="#b91c1c" />
+            </linearGradient>
+            <filter id="puzzleGlowRed" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#ef4444" flood-opacity="0.9"/>
+            </filter>
+          </defs>
+          <path d="
+            M 36,36 
+            L 52,36 
+            C 48,22 42,14 60,14 
+            C 78,14 72,22 68,36 
+            L 84,36 
+            L 84,52 
+            C 98,48 106,42 106,60 
+            C 106,78 98,72 84,68 
+            L 84,84 
+            L 68,84 
+            C 72,98 78,106 60,106 
+            C 42,106 48,98 52,84 
+            L 36,84 
+            L 36,68 
+            C 50,72 58,78 58,60 
+            C 58,42 50,48 36,52 
+            Z" 
+            fill="url(#puzzleGradRed)" stroke="#ffffff" stroke-width="4" stroke-linejoin="round" filter="url(#puzzleGlowRed)"/>
+        </svg>
+      </div>
+      <div class="start-hero-badge">作文力アップゲーム</div>
       <h1 class="start-hero-title" style="line-height: 1.3;">熟語かくれんぼ<br><span style="font-size: 0.75em;">４年</span></h1>
-      <p style="color: #fca5a5; font-size: 16px; margin-bottom: 24px; line-height: 1.6;">
-        作文の中から、意味に合う熟語を見つけよう！
+      <p class="start-hero-desc">
+        作文の中から，意味に合う熟語を見つけよう！
       </p>
       <button class="start-play-btn" onclick="initAudio(); this.closest('.modal-overlay').remove(); startStage();">GAME START</button>
     </div>
